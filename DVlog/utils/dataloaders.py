@@ -49,7 +49,6 @@ class BaseDVlogDataset(Dataset):
             padded_visual = visual[:self.seq_length]
             padded_acoustic = acoustic[:self.seq_length]
 
-        print(visual.shape, padded_visual.shape)
         return padded_visual, padded_acoustic, label
     
     def retrieve_dataset_labels(self, annotations_file: Path):
