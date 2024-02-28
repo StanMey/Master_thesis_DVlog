@@ -48,8 +48,12 @@ class BaseDVlogDataset(Dataset):
             # the sequence is to long, so apply the truncate
             padded_visual = visual[:self.seq_length]
             padded_acoustic = acoustic[:self.seq_length]
+        
+        # format the label as a class
+        class_label = np.zeros(2)
+        class_label[label] = 1
 
-        return padded_visual, padded_acoustic, label
+        return padded_visual, padded_acoustic, class_label
     
     def retrieve_dataset_labels(self, annotations_file: Path):
         """Filter the annotation dataset for the specific dataset we want to use.
