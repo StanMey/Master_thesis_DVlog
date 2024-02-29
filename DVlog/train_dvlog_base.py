@@ -7,7 +7,7 @@ from torch.utils.data import DataLoader
 from pathlib import Path
 
 from utils.dataloaders import BaseDVlogDataset
-from models.unimodel import UnimodalTransformerEncoder
+from models.unimodel import UnimodalDVlogModel
 
 
 # HARDCODE SOME VARIABLES
@@ -16,7 +16,7 @@ from models.unimodel import UnimodalTransformerEncoder
 # learning rate: 0.0002
 # sequence length (t): 596
 EPOCHS = 1
-BATCH_SIZE = 32
+BATCH_SIZE = 1
 LEARNING_RATE = 0.0002
 SEQUENCE_LENGTH = 596
 
@@ -33,7 +33,7 @@ train_dataloader = DataLoader(training_data, batch_size=BATCH_SIZE, shuffle=True
 val_dataloader = DataLoader(val_data, batch_size=BATCH_SIZE, shuffle=True)
 
 # setup the network
-model = UnimodalTransformerEncoder()
+model = UnimodalDVlogModel(25, 5)
 
 # # set the loss function and optimizer
 criterion = nn.CrossEntropyLoss()
