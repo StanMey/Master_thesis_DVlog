@@ -3,6 +3,8 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
 
+# PyTorch TensorBoard support
+from torch.utils.tensorboard import SummaryWriter
 from torch.utils.data import DataLoader
 from pathlib import Path
 
@@ -15,18 +17,23 @@ from models.unimodel import UnimodalDVlogModel
 # epochs: 50
 # learning rate: 0.0002
 # sequence length (t): 596
-EPOCHS = 1
-BATCH_SIZE = 1
+EPOCHS = 10
+BATCH_SIZE = 32
 LEARNING_RATE = 0.0002
 SEQUENCE_LENGTH = 596
+USE_GPU = True
 
 
-# load in the dataset
-annotations_file = Path(r"./dataset/dvlog_labels.csv")
+# setup the paths
+annotations_file = Path(r"./dataset/dvlog_labels_v1.csv")
 data_dir = Path(r"./dataset/dvlog-dataset")
 
-training_data = BaseDVlogDataset(annotations_file, data_dir, "train", sequence_length=SEQUENCE_LENGTH)
-val_data = BaseDVlogDataset(annotations_file, data_dir, "val", sequence_length=SEQUENCE_LENGTH)
+# setup the device
+# device = torch.device("cuda:0" if USE_GPU and torch.cuda.is_available() else "cpu")
+
+# load in the dataset
+training_data = BaseDVlogDataset(annotations_file, data_dir, "train", sequence_length=SEQUENCE_LENGTH, to_tensor=True)
+val_data = BaseDVlogDataset(annotations_file, data_dir, "val", sequence_length=SEQUENCE_LENGTH, to_tensor=True)
 
 # setup the dataloader
 train_dataloader = DataLoader(training_data, batch_size=BATCH_SIZE, shuffle=True)
@@ -34,6 +41,9 @@ val_dataloader = DataLoader(val_data, batch_size=BATCH_SIZE, shuffle=True)
 
 # setup the network
 model = UnimodalDVlogModel(25, 5)
+
+# if torch.cuda.is_available():
+#     model.cuda()
 
 # # set the loss function and optimizer
 criterion = nn.CrossEntropyLoss()
@@ -61,9 +71,9 @@ for epoch in range(EPOCHS):  # loop over the dataset multiple times
 
         # print statistics
         running_loss += loss.item()
-        if i % 20 == 19:    # print every 20 mini-batches
+        if i % 10 == 9:    # print every 10 mini-batches
             print('[%d, %5d] loss: %.3f' %
-                  (epoch + 1, i + 1, running_loss / 20))
+                  (epoch + 1, i + 1, running_loss / 10))
             running_loss = 0.0
 
 print('Finished Training')
