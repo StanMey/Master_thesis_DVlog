@@ -42,10 +42,11 @@ class BaseDVlogDataset(Dataset):
 
         if self.seq_length > visual.shape[0]:
             # the sequence is to short, so apply the padding to the timesteps (https://stackoverflow.com/questions/73444621/padding-one-numpy-array-to-achieve-the-same-number-os-columns-of-another-numpy-a)
-            diff_timesteps = self.seq_length - visual.shape[0]
+            visual_diff_timesteps = self.seq_length - visual.shape[0]
+            acoustic_diff_timesteps = self.seq_length - acoustic.shape[0]
 
-            padded_visual = np.concatenate((visual, np.zeros((diff_timesteps, visual.shape[1]))), axis=0)
-            padded_acoustic = np.concatenate((acoustic, np.zeros((diff_timesteps, acoustic.shape[1]))), axis=0)
+            padded_visual = np.concatenate((visual, np.zeros((visual_diff_timesteps, visual.shape[1]))), axis=0)
+            padded_acoustic = np.concatenate((acoustic, np.zeros((acoustic_diff_timesteps, acoustic.shape[1]))), axis=0)
 
         else:
             # the sequence is to long, so apply the truncate
