@@ -54,24 +54,25 @@ class UnimodalTransformerEncoder(nn.Module):
         self.n_heads = n_heads
 
         # input
-        self.conv1 = torch.nn.Conv1d(self.d_model, self.d_model, self.kernel_size, stride=self.stride)
-        self.conv2 = torch.nn.Conv1d(self.d_model, self.d_model, self.kernel_size, stride=self.stride)
+        self.conv1 = torch.nn.Conv1d(self.d_model, self.d_model, self.kernel_size, stride=self.stride, padding=1) # padding of 1 since we otherwise don't get to t/4
+        self.conv2 = torch.nn.Conv1d(self.d_model, self.d_model, self.kernel_size, stride=self.stride, padding=1)
         self.pos_encoder = PositionalEncoding(self.d_model)
 
-        # the encoder itself (takes in (batch_size, temporal, d_model))
-        self.encoder_layer = nn.TransformerEncoderLayer(self.d_model, self.n_heads, batch_first=True)
+        # the encoder itself (takes in (temporal, batch_size, d_model))
+        self.encoder_layer = nn.TransformerEncoderLayer(self.d_model, self.n_heads)
 
-    def forward(self, x):
+    def forward(self, x: Tensor) -> Tensor:
         # shape the data for the convolution layers (https://discuss.pytorch.org/t/how-to-apply-temporal-conv-on-1d-data/135363)
-        print(x.shape)
-        x = x.transpose(1, 2) # only swap the rows and columns and not the batch
-        print(x.shape)
+        x = x.transpose(1, 2) # only swap the rows and columns and not the batch ([batch_size, embedding_dim, seq_len])
         x = self.conv1(x)
         x = self.conv2(x)
 
-        #TODO reshape the data for the positional encoder
+        # reshape the data for the positional encoder ([seq_len, batch_size, embedding_dim])
+        x = torch.permute(x, (2, 0, 1))
         x = self.pos_encoder(x)
         x = self.encoder_layer(x)
+        # reshape the data back to for the representation ([batch_size, seq_len, embedding_dim])
+        x = torch.permute(x, (1, 0, 2))
         return x
 
 
@@ -92,16 +93,18 @@ class DetectionLayer(nn.Module):
         self.d_model = d_model
         self.p_dropout = dropout
 
-        self.gap = nn.AvgPool1d(self.d_model)
+        # self.gap = nn.AvgPool1d(self.d_model)
         self.dropout = nn.Dropout(self.p_dropout)
         self.fc = nn.Linear(self.d_model, 2)  # output to 2 neurons since softmax
-        self.softmax = nn.Softmax()
+        self.softmax = nn.Softmax(1)
     
     def forward(self, x):
-        x = self.gap(x)
-        x = x.squeeze() # flatten to a row so the matrix multiplication works
+        # x = x.transpose(1, 2) # only swap the rows and columns and not the batch ([batch_size, embedding_dim, seq_len])
+        # apply the pooling
+        x = torch.mean(x, 1)
         x = self.dropout(x)
-        x = self.softmax(x)
+        x = self.fc(x)
+        x = self.softmax(x,)
         return x
 
 
