@@ -81,17 +81,20 @@ class DetectionLayer(nn.Module):
 
     """
 
-    def __init__(self, d_model: int, dropout: float = 0.2):
+    def __init__(self, d_model: int, dropout: float = 0.2, use_std: bool = False):
         """_summary_
 
         :param d_model: The dimension of the unimodal representation (feature space)
         :type d_model: int
         :param dropout: The Dropout of the detection layer, defaults to 0.2
         :type dropout: float, optional
+        :param use_std: Whether to use global average pooling or global standard deviation pooling, defaults to False
+        :type dropout: bool, optional
         """
         super().__init__()
         self.d_model = d_model
         self.p_dropout = dropout
+        self.use_std = use_std
 
         # self.gap = nn.AvgPool1d(self.d_model)
         self.dropout = nn.Dropout(self.p_dropout)
@@ -101,7 +104,11 @@ class DetectionLayer(nn.Module):
     def forward(self, x):
         # x = x.transpose(1, 2) # only swap the rows and columns and not the batch ([batch_size, embedding_dim, seq_len])
         # apply the pooling
-        x = torch.mean(x, 1)
+        if self.use_std:
+            x = torch.std(x, 1)
+        else:
+            x = torch.mean(x, 1)
+
         x = self.dropout(x)
         x = self.fc(x)
         x = self.softmax(x,)
@@ -113,7 +120,16 @@ class UnimodalDVlogModel(nn.Module):
     
     """
 
-    def __init__(self, d_model: int, n_heads: int = 8):
+    def __init__(self, d_model: int, n_heads: int = 8, use_std: bool = False):
+        """_summary_
+
+        :param d_model: _description_
+        :type d_model: int
+        :param n_heads: _description_, defaults to 8
+        :type n_heads: int, optional
+        :param use_std: Whether to use global average pooling or global standard deviation pooling, defaults to False
+        :type dropout: bool, optional
+        """
         super().__init__()
         # 
         self.d_model = d_model
