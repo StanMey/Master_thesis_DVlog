@@ -8,7 +8,7 @@ from pathlib import Path
 
 
 class BaseDVlogDataset(Dataset):
-    def __init__(self, annotations_file: Path, data_dir: Path, dataset: str, sequence_length: int = 596, to_tensor: bool = False):
+    def __init__(self, annotations_file: Path, data_dir: Path, dataset: str, sequence_length: int = 596, to_tensor: bool = False, with_protected: bool = False):
         """Loads in the base DVlog dataset.
 
         :param annotations_file: The path to the file holding the annotations and names of the video features
@@ -19,13 +19,17 @@ class BaseDVlogDataset(Dataset):
         :type dataset: str
         :param sequence_length: The length of timestamps, defaults to 596
         :type sequence_length: int, optional
-        :param to_tensor
+        :param to_tensor: , defaults to False
+        :type to_tensor: bool, optional
+        :param with_protected: Whether the protected attribute should be returned (for the evaluation part), defaults to False
+        :type with_protected: bool, optional
         """
         self.dataset = dataset
         self.data_dir = data_dir
         self.data_labels = self.retrieve_dataset_labels(annotations_file)
         self.seq_length = sequence_length
         self.to_tensor = to_tensor
+        self.with_protected = with_protected
 
     def __len__(self):
         return len(self.data_labels)
@@ -33,6 +37,7 @@ class BaseDVlogDataset(Dataset):
     def __getitem__(self, idx):
         video_id = self.data_labels.iloc[idx, 0]
         label = self.data_labels.iloc[idx, 1]
+        protected = self.data_labels.iloc[idx, 2]
 
         visual_path = os.path.join(self.data_dir, str(video_id), f"{video_id}_visual.npy")
         acoustic_path = os.path.join(self.data_dir, str(video_id), f"{video_id}_acoustic.npy")
@@ -58,9 +63,16 @@ class BaseDVlogDataset(Dataset):
         class_label[label] = 1
 
         if self.to_tensor:
-            return torch.Tensor(padded_visual), torch.Tensor(padded_acoustic), torch.Tensor(class_label)
+            # convert the tuple to a tensor
+            output_item =  torch.Tensor(padded_visual), torch.Tensor(padded_acoustic), torch.Tensor(class_label)
         else:
-            return padded_visual, padded_acoustic, class_label
+            output_item = (padded_visual, padded_acoustic, class_label)
+
+        if self.with_protected:
+            # also add the protected label to the output
+            output_item = (*output_item, protected)
+        
+        return output_item
 
 
     def retrieve_dataset_labels(self, annotations_file: Path):
