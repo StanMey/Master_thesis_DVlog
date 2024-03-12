@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
 import torch.optim as optim
+import numpy as np
 
 # PyTorch TensorBoard support
 # from torch.utils.tensorboard import SummaryWriter
@@ -9,6 +9,7 @@ from torch.utils.data import DataLoader
 from pathlib import Path
 
 from utils.dataloaders import BaseDVlogDataset
+from utils.metrics import calculate_performance_measures
 from models.unimodel import UnimodalDVlogModel
 
 
@@ -17,16 +18,26 @@ from models.unimodel import UnimodalDVlogModel
 # epochs: 50
 # learning rate: 0.0002
 # sequence length (t): 596
+SEED = 42
+torch.manual_seed(SEED)
 EPOCHS = 50
 BATCH_SIZE = 32
 LEARNING_RATE = 0.0002
 SEQUENCE_LENGTH = 596
 USE_GPU = True
-MODEL_NAME = "unimodal_acoustic_v1"
+MODEL_NAME = "unimodal_visual_v2_std"
+
+# training parameters
+modality = "visual" # can choose between acoustic or visual
+input_dimension = 136
+attention_heads = 8
+
+# do the checks over the parameters
+assert modality in ["visual", "acoustic"], f"Modality type not in choices: {modality}"
 
 
 # setup the paths
-annotations_file = Path(r"./dataset/dvlog_labels_v1.csv")
+annotations_file = Path(r"./dataset/dvlog_labels_v2.csv")
 data_dir = Path(r"./dataset/dvlog-dataset")
 
 # setup the device
@@ -41,7 +52,7 @@ train_dataloader = DataLoader(training_data, batch_size=BATCH_SIZE, shuffle=True
 val_dataloader = DataLoader(val_data, batch_size=BATCH_SIZE, shuffle=True)
 
 # setup the network
-model = UnimodalDVlogModel(25, 5)
+model = UnimodalDVlogModel(input_dimension, attention_heads)
 
 # if torch.cuda.is_available():
 #     model.cuda()
@@ -63,13 +74,16 @@ for epoch in range(EPOCHS):  # loop over the dataset multiple times
     for i, data in enumerate(train_dataloader):
 
         # get the inputs
-        _, acoustic_inputs, labels = data
+        if modality == "acoustic":
+            _, inputs, labels = data
+        else:
+            inputs, _, labels = data
 
         # zero the parameter gradients
         optimizer.zero_grad()
 
         # forward + backward + optimize
-        outputs = model(acoustic_inputs)
+        outputs = model(inputs)
         loss = criterion(outputs, labels)
         loss.backward()
         optimizer.step()
@@ -82,24 +96,37 @@ for epoch in range(EPOCHS):  # loop over the dataset multiple times
     # Set the model to evaluation mode, disabling dropout and using population
     # statistics for batch normalization.
     running_vloss = 0.0
+    predictions = []
+    y_labels = []
     model.eval()
 
     # Disable gradient computation and reduce memory consumption.
     with torch.no_grad():
         for i, vdata in enumerate(val_dataloader):
-            _, v_acoustic_inputs, vlabels = vdata
 
-            voutputs = model(v_acoustic_inputs)
+            # choose the appropriate inputs
+            if modality == "acoustic":
+                _, v_inputs, vlabels = vdata
+            else:
+                v_inputs, _, vlabels = vdata
+
+            voutputs = model(v_inputs)
             vloss = criterion(voutputs, vlabels)
             running_vloss += vloss
+
+            # save the predictions and ground truths from each batch for processing
+            predictions.append(voutputs.numpy())
+            y_labels.append(vlabels.numpy())
     
     avg_vloss = running_vloss / (i + 1)
-    print('LOSS train {} valid {}'.format(avg_loss, avg_vloss))
+    accuracy, _, _, fscore = calculate_performance_measures(y_labels, predictions)
+    print('LOSS train {} validation {}'.format(avg_loss, avg_vloss))
+    print(f"Validation accuracy: {accuracy}; F1-score: {fscore}")
 
     # Track best performance, and save the model's state
     if avg_vloss < best_vloss:
         best_vloss = avg_vloss
-        model_path = 'model_{}'.format(MODEL_NAME)
+        model_path = 'trained_models/model_{}'.format(MODEL_NAME)
         torch.save(model.state_dict(), model_path)
     
     epoch_number += 1
