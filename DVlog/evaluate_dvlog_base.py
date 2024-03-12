@@ -25,6 +25,7 @@ SAVED_MODEL_PATH = Path(f"trained_models/model_{SAVED_MODEL_WEIGHTS}")
 # evaluation parameters
 modality = "acoustic" # can choose between acoustic or visual
 dataset = "test" # can choose between 'test', 'train', or 'val'
+fairness_unprivileged = "m"
 input_dimension = 25
 attention_heads = 5
 
@@ -80,7 +81,7 @@ with torch.no_grad():
 
 # get the performance and fairness metrics
 accuracy, precision, recall, fscore = calculate_performance_measures(y_labels, predictions)
-eq_odds, eq_oppor, eq_acc = calculate_fairness_measures(y_labels, predictions, protected)
+eq_odds, eq_oppor, eq_acc = calculate_fairness_measures(y_labels, predictions, protected, fairness_unprivileged)
 
 # print out all the metrics
 print(f"Model: {SAVED_MODEL_WEIGHTS}\n----------")
