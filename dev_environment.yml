@@ -1,4 +1,4 @@
-name: dvlog_env
+name: dev_env
 channels:
   - anaconda
   - conda-forge
@@ -6,6 +6,11 @@ channels:
 dependencies:
   - python=3.11
   - pandas
+  - matplotlib-base
   - numpy
+  - jupyterlab
   - openpyxl=3.1.2
+  - nltk
   - scikit-learn
+  - moviepy
+  - pydub
