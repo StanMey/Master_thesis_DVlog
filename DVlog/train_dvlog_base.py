@@ -10,7 +10,7 @@ from pathlib import Path
 
 from utils.dataloaders import BaseDVlogDataset
 from utils.metrics import calculate_performance_measures
-from models.unimodel import UnimodalDVlogModel
+from DVlog.models.model import UnimodalDVlogModel
 
 
 # HARDCODE SOME VARIABLES

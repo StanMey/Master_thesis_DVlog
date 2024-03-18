@@ -1,5 +1,4 @@
 import torch
-import typer
 
 # PyTorch TensorBoard support
 # from torch.utils.tensorboard import SummaryWriter
@@ -8,7 +7,7 @@ from pathlib import Path
 
 from utils.dataloaders import BaseDVlogDataset
 from utils.metrics import calculate_performance_measures, calculate_fairness_measures
-from models.unimodel import UnimodalDVlogModel
+from DVlog.models.model import UnimodalDVlogModel
 
 
 # HARDCODE SOME VARIABLES
