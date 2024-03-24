@@ -10,7 +10,7 @@ from pathlib import Path
 
 from utils.dataloaders import BaseDVlogDataset
 from utils.metrics import calculate_performance_measures
-from models.model import UnimodalDVlogModel
+from models.model import UnimodalDVlogModel, BimodalDVlogModel
 
 
 # HARDCODE SOME VARIABLES
@@ -25,12 +25,15 @@ EPOCHS = 50
 BATCH_SIZE = 32
 LEARNING_RATE = 0.0002
 SEQUENCE_LENGTH = 596
+DIM_MODEL = 256
 USE_GPU = True
-MODEL_NAME = "unimodal_visual_v1"
+USE_STD = False
+MODEL_NAME = "bimodal_dvlog_v1"
 
 # training parameters
-modality = "visual" # can choose between acoustic, visual, or both
-feature_dimension = 136
+modality = "both" # can choose between acoustic, visual, or both
+visual_feature_dim = 136
+acoustic_feature_dim = 25
 
 # do the checks over the parameters
 assert modality in ["visual", "acoustic", "both"], f"Modality type not in choices: {modality}"
@@ -51,7 +54,15 @@ train_dataloader = DataLoader(training_data, batch_size=BATCH_SIZE, shuffle=True
 val_dataloader = DataLoader(val_data, batch_size=BATCH_SIZE, shuffle=True)
 
 # setup the network
-model = UnimodalDVlogModel(data_shape=(SEQUENCE_LENGTH, feature_dimension))
+if modality == "acoustic":
+    # acoustic unimodel
+    model = UnimodalDVlogModel(data_shape=(SEQUENCE_LENGTH, acoustic_feature_dim), d_model=DIM_MODEL, use_std=USE_STD)
+elif modality == "visual":
+    # visual unimodel
+    model = UnimodalDVlogModel(data_shape=(SEQUENCE_LENGTH, visual_feature_dim), d_model=DIM_MODEL, use_std=USE_STD)
+else:
+    # bimodal model
+    model = BimodalDVlogModel(d_model=DIM_MODEL, use_std=USE_STD)
 
 # if torch.cuda.is_available():
 #     model.cuda()
@@ -75,14 +86,19 @@ for epoch in range(EPOCHS):  # loop over the dataset multiple times
         # get the inputs
         if modality == "acoustic":
             _, inputs, labels = data
-        else:
+        elif modality == "visual":
             inputs, _, labels = data
+        else:
+            inputs_v, inputs_a, labels = data
 
         # zero the parameter gradients
         optimizer.zero_grad()
 
         # forward + backward + optimize
-        outputs = model(inputs)
+        if modality == "both":
+            outputs = model((inputs_v, inputs_a))
+        else:
+            outputs = model(inputs)
         loss = criterion(outputs, labels)
         loss.backward()
         optimizer.step()
@@ -106,10 +122,17 @@ for epoch in range(EPOCHS):  # loop over the dataset multiple times
             # choose the appropriate inputs
             if modality == "acoustic":
                 _, v_inputs, vlabels = vdata
-            else:
+            elif modality == "visual":
                 v_inputs, _, vlabels = vdata
+            else:
+                v_inputs_v, v_inputs_a, labels = data
 
-            voutputs = model(v_inputs)
+
+            if modality == "both":
+                voutputs = model((v_inputs_v, v_inputs_a))
+            else:
+                voutputs = model(v_inputs)
+
             vloss = criterion(voutputs, vlabels)
             running_vloss += vloss
 
