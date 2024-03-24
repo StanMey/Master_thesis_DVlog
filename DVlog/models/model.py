@@ -46,16 +46,35 @@ class UnimodalTransformerEncoder(nn.Module):
     
     """
 
-    def __init__(self, d_model: int, kernel_size: int = 4, stride: int = 2, n_heads: int = 8):
+    def __init__(self, data_shape: tuple[int, int], d_model: int = 256, kernel_size: int = 4, stride: int = 2, n_heads: int = 8):
         super().__init__()
-        self.d_model = d_model
+        """
+        :param data_shape: The shape of the input data
+        :type data_shape: tuple[int, int]
+        :param d_model: The dimension of the encoder representation (d_u in the paper), defaults to 256
+        :type d_model: int, optional
+        :param kernel_size: The size of the sliding window, defaults to 4
+        :type kernel_size: int, optional
+        :param stride: The stride of the window, defaults to 2
+        :type stride: int, optional
+        :param n_heads: The number of attention heads in the encoder, defaults to 8
+        :type n_heads: int, optional
+        """
+        self.data_shape = data_shape
+        self.d_model = d_model  # d_u
         self.kernel_size = kernel_size
         self.stride = stride
         self.n_heads = n_heads
 
         # input
-        self.conv1 = torch.nn.Conv1d(self.d_model, self.d_model, self.kernel_size, stride=self.stride, padding=1) # padding of 1 since we otherwise don't get to t/4
-        self.conv2 = torch.nn.Conv1d(self.d_model, self.d_model, self.kernel_size, stride=self.stride, padding=1)
+        # convolutional layers
+        self.conv1 = torch.nn.Conv1d(in_channels=self.data_shape[-1], out_channels=self.data_shape[-1],
+                                     kernel_size=self.kernel_size, stride=self.stride, padding=1)  # padding of 1 since we otherwise don't get to t/4
+        self.conv2 = torch.nn.Conv1d(in_channels=self.data_shape[-1], out_channels=self.data_shape[-1],
+                                     kernel_size=self.kernel_size, stride=self.stride, padding=1)
+
+        # setup the embedding layer and pos encoding
+        self.fc = nn.Linear(self.data_shape[-1], self.d_model)  # embedding layer to set the input data to d_u
         self.pos_encoder = PositionalEncoding(self.d_model)
 
         # the encoder itself (takes in (temporal, batch_size, d_model))
@@ -63,12 +82,16 @@ class UnimodalTransformerEncoder(nn.Module):
 
     def forward(self, x: Tensor) -> Tensor:
         # shape the data for the convolution layers (https://discuss.pytorch.org/t/how-to-apply-temporal-conv-on-1d-data/135363)
-        x = x.transpose(1, 2) # only swap the rows and columns and not the batch ([batch_size, embedding_dim, seq_len])
+        x = torch.permute(x, (0, 2, 1))  # only swap the rows and columns and not the batch ([batch_size, embedding_dim, seq_len])
         x = self.conv1(x)
         x = self.conv2(x)
 
+        # put the data through the embedding layer
+        x = torch.permute(x, (0, 2, 1))  # swap the rows and columns back ([batch_size, seq_len, embedding_dim])
+        x = self.fc(x)
+
         # reshape the data for the positional encoder ([seq_len, batch_size, embedding_dim])
-        x = torch.permute(x, (2, 0, 1))
+        x = torch.permute(x, (1, 0, 2))
         x = self.pos_encoder(x)
         x = self.encoder_layer(x)
         # reshape the data back to for the representation ([batch_size, seq_len, embedding_dim])
@@ -82,8 +105,7 @@ class DetectionLayer(nn.Module):
     """
 
     def __init__(self, d_model: int, dropout: float = 0.2, use_std: bool = False):
-        """_summary_
-
+        """
         :param d_model: The dimension of the unimodal representation (feature space)
         :type d_model: int
         :param dropout: The Dropout of the detection layer, defaults to 0.2
@@ -120,23 +142,27 @@ class UnimodalDVlogModel(nn.Module):
     
     """
 
-    def __init__(self, d_model: int, n_heads: int = 8, use_std: bool = False):
-        """_summary_
-
-        :param d_model: _description_
-        :type d_model: int
-        :param n_heads: _description_, defaults to 8
+    def __init__(self, data_shape: tuple[int, int], d_model: int = 256, n_heads: int = 8, use_std: bool = False):
+        """
+        :param data_shape: The shape of the input data
+        :type data_shape: tuple[int, int]
+        :param d_model: The dimension of the encoder representation (d_u in the paper), defaults to 256
+        :type d_model: int, optional
+        :param n_heads: The number of attention heads in the encoder, defaults to 8
         :type n_heads: int, optional
-        :param use_std: Whether to use global average pooling or global standard deviation pooling, defaults to False
         :type dropout: bool, optional
+        :param use_std: Whether to use global average pooling or global standard deviation pooling, defaults to False
+        :type use_std: bool, optional
         """
         super().__init__()
         # 
+        self.data_shape = data_shape
         self.d_model = d_model
         self.n_heads = n_heads
+        self.use_std = use_std
 
-        self.encoder = UnimodalTransformerEncoder(self.d_model, n_heads=self.n_heads)
-        self.detection_layer = DetectionLayer(self.d_model)
+        self.encoder = UnimodalTransformerEncoder(self.data_shape, self.d_model, n_heads=self.n_heads)
+        self.detection_layer = DetectionLayer(self.d_model, use_std=use_std)
 
     def forward(self, x):
         x = self.encoder(x)

@@ -10,7 +10,7 @@ from pathlib import Path
 
 from utils.dataloaders import BaseDVlogDataset
 from utils.metrics import calculate_performance_measures
-from DVlog.models.model import UnimodalDVlogModel
+from models.model import UnimodalDVlogModel
 
 
 # HARDCODE SOME VARIABLES
@@ -20,24 +20,23 @@ from DVlog.models.model import UnimodalDVlogModel
 # sequence length (t): 596
 SEED = 42
 torch.manual_seed(SEED)
+
 EPOCHS = 50
 BATCH_SIZE = 32
 LEARNING_RATE = 0.0002
 SEQUENCE_LENGTH = 596
 USE_GPU = True
-MODEL_NAME = "unimodal_visual_v2_std"
+MODEL_NAME = "unimodal_visual_v1"
 
 # training parameters
-modality = "visual" # can choose between acoustic or visual
-input_dimension = 136
-attention_heads = 8
+modality = "visual" # can choose between acoustic, visual, or both
+feature_dimension = 136
 
 # do the checks over the parameters
-assert modality in ["visual", "acoustic"], f"Modality type not in choices: {modality}"
-
+assert modality in ["visual", "acoustic", "both"], f"Modality type not in choices: {modality}"
 
 # setup the paths
-annotations_file = Path(r"./dataset/dvlog_labels_v2.csv")
+annotations_file = Path(r"./dataset/dvlog_labels_v1.csv")
 data_dir = Path(r"./dataset/dvlog-dataset")
 
 # setup the device
@@ -52,7 +51,7 @@ train_dataloader = DataLoader(training_data, batch_size=BATCH_SIZE, shuffle=True
 val_dataloader = DataLoader(val_data, batch_size=BATCH_SIZE, shuffle=True)
 
 # setup the network
-model = UnimodalDVlogModel(input_dimension, attention_heads)
+model = UnimodalDVlogModel(data_shape=(SEQUENCE_LENGTH, feature_dimension))
 
 # if torch.cuda.is_available():
 #     model.cuda()

@@ -7,7 +7,7 @@ from pathlib import Path
 
 from utils.dataloaders import BaseDVlogDataset
 from utils.metrics import calculate_performance_measures, calculate_fairness_measures
-from DVlog.models.model import UnimodalDVlogModel
+from models.model import UnimodalDVlogModel
 
 
 # HARDCODE SOME VARIABLES
@@ -18,15 +18,14 @@ from DVlog.models.model import UnimodalDVlogModel
 BATCH_SIZE = 32
 SEQUENCE_LENGTH = 596
 USE_GPU = True
-SAVED_MODEL_WEIGHTS = "unimodal_acoustic_v2"
+SAVED_MODEL_WEIGHTS = "unimodal_visual_v2"
 SAVED_MODEL_PATH = Path(f"trained_models/model_{SAVED_MODEL_WEIGHTS}")
 
 # evaluation parameters
-modality = "acoustic" # can choose between acoustic or visual
+modality = "visual" # can choose between acoustic or visual
 dataset = "test" # can choose between 'test', 'train', or 'val'
 fairness_unprivileged = "m"
-input_dimension = 25
-attention_heads = 5
+feature_dimension = 136
 
 # do the checks over the parameters
 assert modality in ["visual", "acoustic"], f"Modality type not in choices: {modality}"
@@ -40,7 +39,7 @@ data_dir = Path(r"./dataset/dvlog-dataset")
 
 
 # load the saved version of the model
-saved_model = UnimodalDVlogModel(input_dimension, attention_heads)
+saved_model = UnimodalDVlogModel(data_shape=(SEQUENCE_LENGTH, feature_dimension))
 saved_model.load_state_dict(torch.load(SAVED_MODEL_PATH))
 # Set the model to evaluation mode
 saved_model.eval()
