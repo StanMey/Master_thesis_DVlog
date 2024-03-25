@@ -118,13 +118,11 @@ class DetectionLayer(nn.Module):
         self.p_dropout = dropout
         self.use_std = use_std
 
-        # self.gap = nn.AvgPool1d(self.d_model)
         self.dropout = nn.Dropout(self.p_dropout)
         self.fc = nn.Linear(self.d_model, 2)  # output to 2 neurons since softmax
         self.softmax = nn.Softmax(1)
     
     def forward(self, x):
-        # x = x.transpose(1, 2) # only swap the rows and columns and not the batch ([batch_size, embedding_dim, seq_len])
         # apply the pooling
         if self.use_std:
             x = torch.std(x, 1)
@@ -166,5 +164,100 @@ class UnimodalDVlogModel(nn.Module):
 
     def forward(self, x):
         x = self.encoder(x)
+        x = self.detection_layer(x)
+        return x
+
+
+class CrossAttentionModule(nn.Module):
+
+    def __init__(self, d_model: int = 256, n_heads: int = 8):
+        """
+        :param d_model: The dimension of the encoder representation (d_u in the paper), defaults to 256
+        :type d_model: int, optional
+        :param n_heads: The number of attention heads in the encoder, defaults to 8
+        :type n_heads: int, optional
+        """
+        super().__init__()
+        self.d_model = d_model
+        self.n_heads = n_heads
+
+        # setup the first cross attention blocks
+        self.left_attention_block = nn.MultiheadAttention(embed_dim=self.d_model, num_heads=self.n_heads, batch_first=True)
+        self.right_attention_block = nn.MultiheadAttention(embed_dim=self.d_model, num_heads=self.n_heads, batch_first=True)
+
+        # layer norm
+        self.layer_norm = nn.LayerNorm(self.d_model)
+
+        # the last transformer before the multimodal representation
+        self.encoder_layer = nn.TransformerEncoderLayer(d_model=self.d_model*2, nhead=self.n_heads, batch_first=True)
+
+    def forward(self, x_audio, x_video):
+        # inputs representation shape: [batch_size, seq_len, input_dim]
+        U_a, U_v = x_audio, x_video
+
+        # perform cross-attention
+        left_attent, _ = self.left_attention_block(query=U_a, key=U_v, value=U_v)
+        right_attent, _ = self.right_attention_block(query=U_v, key=U_a, value=U_a)
+        
+        # add residual and layer normalization
+        U_a = left_attent + U_a
+        U_a = self.layer_norm(U_a)
+
+        U_v = right_attent + U_v
+        U_v = self.layer_norm(U_v)
+
+        # fuse cross-modal information
+        U_av = torch.cat((U_a, U_v), 2)
+
+        # perform last multimodal encoder
+        z = self.encoder_layer(U_av)
+        return z
+
+
+class BimodalDVlogModel(nn.Module):
+    """_summary_
+    
+    """
+
+    def __init__(self, audio_shape: tuple[int, int] = (596, 25), video_shape: tuple[int, int] = (596, 136), d_model: int = 256, n_heads: int = 8, use_std: bool = False):
+        """
+        :param audio_shape: The input shape of the audio data, defaults to (596, 25)
+        :type audio_shape: tuple[int, int], optional
+        :param video_shape: The input shape of the audio data, defaults to (596, 136)
+        :type video_shape: tuple[int, int], optional
+        :param d_model: The dimension of the encoder representation (d_u in the paper), defaults to 256
+        :type d_model: int, optional
+        :param n_heads: The number of attention heads in the encoder, defaults to 8
+        :type n_heads: int, optional
+        :type dropout: bool, optional
+        :param use_std: Whether to use global average pooling or global standard deviation pooling, defaults to False
+        :type use_std: bool, optional
+        """
+        super().__init__()
+        # 
+        self.audio_shape = audio_shape
+        self.video_shape = video_shape
+        self.d_model = d_model
+        self.n_heads = n_heads
+        self.use_std = use_std
+
+        # setup both encoders
+        self.audio_encoder = UnimodalTransformerEncoder(self.audio_shape, self.d_model, n_heads=self.n_heads)
+        self.video_encoder = UnimodalTransformerEncoder(self.video_shape, self.d_model, n_heads=self.n_heads)
+
+        # setup the cross attention and prediction layer
+        self.crossattention = CrossAttentionModule(self.d_model, n_heads=self.n_heads)
+        self.detection_layer = DetectionLayer(self.d_model*2, use_std=use_std)
+
+    def forward(self, features):
+        # extract both features
+        x_audio, x_video = features
+
+        # run the features through the encoders
+        x_audio = self.audio_encoder(x_audio)
+        x_video = self.video_encoder(x_video)
+
+        # apply the cross attention and the detection layer
+        x = self.crossattention(x_audio, x_video)
         x = self.detection_layer(x)
         return x

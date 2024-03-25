@@ -26,6 +26,7 @@ BATCH_SIZE = 32
 LEARNING_RATE = 0.0002
 SEQUENCE_LENGTH = 596
 DIM_MODEL = 256
+N_HEADS = 8
 USE_GPU = True
 USE_STD = False
 MODEL_NAME = "bimodal_dvlog_v1"
@@ -62,7 +63,7 @@ elif modality == "visual":
     model = UnimodalDVlogModel(data_shape=(SEQUENCE_LENGTH, visual_feature_dim), d_model=DIM_MODEL, use_std=USE_STD)
 else:
     # bimodal model
-    model = BimodalDVlogModel(d_model=DIM_MODEL, use_std=USE_STD)
+    model = BimodalDVlogModel(d_model=DIM_MODEL, n_heads=N_HEADS, use_std=USE_STD)
 
 # if torch.cuda.is_available():
 #     model.cuda()
@@ -96,9 +97,10 @@ for epoch in range(EPOCHS):  # loop over the dataset multiple times
 
         # forward + backward + optimize
         if modality == "both":
-            outputs = model((inputs_v, inputs_a))
+            outputs = model((inputs_a, inputs_v))
         else:
             outputs = model(inputs)
+
         loss = criterion(outputs, labels)
         loss.backward()
         optimizer.step()
@@ -125,11 +127,11 @@ for epoch in range(EPOCHS):  # loop over the dataset multiple times
             elif modality == "visual":
                 v_inputs, _, vlabels = vdata
             else:
-                v_inputs_v, v_inputs_a, labels = data
+                v_inputs_v, v_inputs_a, vlabels = data
 
 
             if modality == "both":
-                voutputs = model((v_inputs_v, v_inputs_a))
+                voutputs = model((v_inputs_a, v_inputs_v))
             else:
                 voutputs = model(v_inputs)
 
