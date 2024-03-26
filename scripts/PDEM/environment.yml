@@ -1,0 +1,13 @@
+name: pdem_env
+channels:
+  - anaconda
+  - conda-forge
+  - defaults
+dependencies:
+  - python=3.10
+  - pip
+  - pandas
+  - numpy
+  - pydub
+  - pip:
+    - audonnx
