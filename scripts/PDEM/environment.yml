@@ -11,3 +11,4 @@ dependencies:
   - pydub
   - pip:
     - audonnx
+    - audinterface
