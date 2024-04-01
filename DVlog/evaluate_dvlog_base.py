@@ -6,7 +6,7 @@ from torch.utils.data import DataLoader
 from pathlib import Path
 
 from utils.dataloaders import BaseDVlogDataset
-from utils.metrics import calculate_performance_measures, calculate_fairness_measures
+from utils.metrics import calculate_performance_measures, calculate_gender_performance_measures, calculate_fairness_measures
 from models.model import BimodalDVlogModel, UnimodalDVlogModel
 
 
@@ -104,3 +104,9 @@ eq_odds, eq_oppor, eq_acc = calculate_fairness_measures(y_labels, predictions, p
 print(f"Model: {SAVED_MODEL_WEIGHTS}\n----------")
 print(f"Accuracy: {accuracy}\nPrecision: {precision}\nRecall: {recall}\nF1-score: {fscore}\n----------")
 print(f"Equal odds: {eq_odds}\nEqual opportunity: {eq_oppor}\nEqual accuracy: {eq_oppor}\n----------")
+
+# print out the gender-based metrics
+print("Gender-based metrics:\n----------")
+gender_metrics = calculate_gender_performance_measures(y_labels, predictions, protected)
+for gender_metric in gender_metrics:
+    print("Metrics for label{0}:\n---\nPrecision: {1}\nRecall: {2}\nF1-score: {3}\n----------".format(*gender_metric))

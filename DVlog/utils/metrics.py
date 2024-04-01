@@ -1,6 +1,7 @@
 import numpy as np
 import pandas as pd
 
+from itertools import chain
 from typing import Tuple
 from sklearn.metrics import accuracy_score, confusion_matrix, precision_recall_fscore_support
 
@@ -29,6 +30,28 @@ def calculate_performance_measures(y_true: list[np.ndarray], y_pred: list[np.nda
     precision, recall, fscore, _ = precision_recall_fscore_support(y_true, y_pred, average="weighted")
 
     return accuracy, precision, recall, fscore
+
+
+### Gender-based performance measures
+def calculate_gender_performance_measures(y_true: list[np.ndarray], y_pred: list[np.ndarray], protected: list[str]) -> list[Tuple[str, float, float, float]]:
+
+    # first flatten the predictions and ground truths
+    y_pred = np.argmax(np.concatenate(y_pred), axis=1)
+    y_true = np.argmax(np.concatenate(y_true), axis=1)
+    y_protected = np.array(list(chain.from_iterable(protected)))
+    
+    metrics = []
+    for gender_value in np.unique(y_protected):
+
+        # check the precision, recall, F1-score for each gender
+        indices = np.where(y_protected == gender_value)
+        y_pred_subset = y_pred[indices]
+        y_true_subset = y_true[indices]
+
+        precision, recall, fscore, _ = precision_recall_fscore_support(y_true_subset, y_pred_subset, average="weighted", zero_division=0)
+        metrics.append((gender_value, precision, recall, fscore))
+
+    return metrics
 
 
 ## The fairness measures
