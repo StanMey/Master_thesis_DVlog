@@ -18,14 +18,15 @@ from models.model import BimodalDVlogModel, UnimodalDVlogModel
 BATCH_SIZE = 32
 SEQUENCE_LENGTH = 596
 DIM_MODEL = 256
-N_HEADS = 8
+N_HEADS_UNIMODAL = 8
+N_HEADS_CROSS = 8
 USE_GPU = True
 USE_STD = False
-SAVED_MODEL_WEIGHTS = "bimodal_dvlog_v1"
+SAVED_MODEL_WEIGHTS = "bimodal_dvlog_v2_cross16"
 SAVED_MODEL_PATH = Path(f"trained_models/model_{SAVED_MODEL_WEIGHTS}")
 
 # evaluation parameters
-modality = "visual" # can choose between 'acoustic', 'visual', or 'both'
+modality = "both" # can choose between 'acoustic', 'visual', or 'both'
 dataset = "test" # can choose between 'test', 'train', or 'val'
 fairness_unprivileged = "m"
 visual_feature_dim = 136
@@ -45,13 +46,13 @@ data_dir = Path(r"./dataset/dvlog-dataset")
 # load the saved version of the model
 if modality == "acoustic":
     # acoustic unimodel
-    saved_model = UnimodalDVlogModel(data_shape=(SEQUENCE_LENGTH, acoustic_feature_dim), d_model=DIM_MODEL, use_std=USE_STD)
+    saved_model = UnimodalDVlogModel(data_shape=(SEQUENCE_LENGTH, acoustic_feature_dim), d_model=DIM_MODEL, n_heads=N_HEADS_UNIMODAL, use_std=USE_STD)
 elif modality == "visual":
     # visual unimodel
-    saved_model = UnimodalDVlogModel(data_shape=(SEQUENCE_LENGTH, visual_feature_dim), d_model=DIM_MODEL, use_std=USE_STD)
+    saved_model = UnimodalDVlogModel(data_shape=(SEQUENCE_LENGTH, visual_feature_dim), d_model=DIM_MODEL, n_heads=N_HEADS_UNIMODAL, use_std=USE_STD)
 else:
     # bimodal model
-    saved_model = BimodalDVlogModel(d_model=DIM_MODEL, n_heads=N_HEADS, use_std=USE_STD)
+    saved_model = BimodalDVlogModel(d_model=DIM_MODEL, n_heads=N_HEADS_CROSS, use_std=USE_STD)
 
 saved_model.load_state_dict(torch.load(SAVED_MODEL_PATH))
 # Set the model to evaluation mode

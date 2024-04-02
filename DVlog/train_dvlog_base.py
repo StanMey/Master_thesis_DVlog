@@ -26,10 +26,11 @@ BATCH_SIZE = 32
 LEARNING_RATE = 0.0002
 SEQUENCE_LENGTH = 596
 DIM_MODEL = 256
-N_HEADS = 8
+N_HEADS_UNIMODAL = 8
+N_HEADS_CROSS = 16
 USE_GPU = True
 USE_STD = False
-MODEL_NAME = "bimodal_dvlog_v1"
+MODEL_NAME = "bimodal_dvlog_v2_cross16"
 
 # training parameters
 modality = "both" # can choose between acoustic, visual, or both
@@ -40,7 +41,7 @@ acoustic_feature_dim = 25
 assert modality in ["visual", "acoustic", "both"], f"Modality type not in choices: {modality}"
 
 # setup the paths
-annotations_file = Path(r"./dataset/dvlog_labels_v1.csv")
+annotations_file = Path(r"./dataset/dvlog_labels_v2.csv")
 data_dir = Path(r"./dataset/dvlog-dataset")
 
 # setup the device
@@ -57,13 +58,13 @@ val_dataloader = DataLoader(val_data, batch_size=BATCH_SIZE, shuffle=True)
 # setup the network
 if modality == "acoustic":
     # acoustic unimodel
-    model = UnimodalDVlogModel(data_shape=(SEQUENCE_LENGTH, acoustic_feature_dim), d_model=DIM_MODEL, use_std=USE_STD)
+    model = UnimodalDVlogModel(data_shape=(SEQUENCE_LENGTH, acoustic_feature_dim), d_model=DIM_MODEL, n_heads=N_HEADS_UNIMODAL, use_std=USE_STD)
 elif modality == "visual":
     # visual unimodel
-    model = UnimodalDVlogModel(data_shape=(SEQUENCE_LENGTH, visual_feature_dim), d_model=DIM_MODEL, use_std=USE_STD)
+    model = UnimodalDVlogModel(data_shape=(SEQUENCE_LENGTH, visual_feature_dim), d_model=DIM_MODEL, n_heads=N_HEADS_UNIMODAL, use_std=USE_STD)
 else:
     # bimodal model
-    model = BimodalDVlogModel(d_model=DIM_MODEL, n_heads=N_HEADS, use_std=USE_STD)
+    model = BimodalDVlogModel(d_model=DIM_MODEL, n_heads=N_HEADS_CROSS, use_std=USE_STD)
 
 # if torch.cuda.is_available():
 #     model.cuda()
@@ -75,6 +76,7 @@ optimizer = optim.Adam(model.parameters(), lr=LEARNING_RATE)
 # run the training
 epoch_number = 0
 best_vloss = 1_000_000
+best_f1 = 0.0
 
 for epoch in range(EPOCHS):  # loop over the dataset multiple times
     print('EPOCH {}:'.format(epoch_number + 1))
@@ -152,6 +154,11 @@ for epoch in range(EPOCHS):  # loop over the dataset multiple times
         best_vloss = avg_vloss
         model_path = 'trained_models/model_{}'.format(MODEL_NAME)
         torch.save(model.state_dict(), model_path)
+    
+    # if fscore > best_f1:
+    #     best_f1 = fscore
+    #     model_path = 'trained_models/model_{}'.format(MODEL_NAME)
+    #     torch.save(model.state_dict(), model_path)
     
     epoch_number += 1
 
