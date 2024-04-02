@@ -1,5 +1,7 @@
 import os
 import csv
+import math
+import pandas as pd
 
 from pathlib import Path
 from pydub import AudioSegment
@@ -10,12 +12,10 @@ from pydub import AudioSegment
 def get_split_audio_by_transcript(transcripts_path: Path, audio_path: Path, output_path: Path) -> None:
     """_summary_
 
-    :param transcripts_path: _description_
-    :type transcripts_path: Path
-    :param audio_path: _description_
-    :type audio_path: Path
-    :param output_path: _description_
-    :type output_path: Path
+    Args:
+        transcripts_path (Path): _description_
+        audio_path (Path): _description_
+        output_path (Path): _description_
     """
     # get all files from the subset
     files = os.listdir(transcripts_path)
@@ -69,27 +69,26 @@ def get_split_audio_by_transcript(transcripts_path: Path, audio_path: Path, outp
     return
 
 
-def make_index_file(transcripts_path: Path, output_audio_path: Path, output_index_path: Path) -> None:
-    """
-    :param subset_dir: path to the training, test or development folder
-    :return: None
+def make_index_file(dataset_type: str, transcripts_path: Path, output_audio_path: Path, output_index_path: Path, chunks: int=1) -> None:
+    """_summary_
+
+    Args:
+        dataset_type (str): _description_
+        transcripts_path (Path): _description_
+        output_audio_path (Path): _description_
+        output_index_path (Path): _description_
+        chunks (int, optional): _description_. Defaults to 1.
     """
 
-    output_index_file_path = os.path.join(output_index_path, "pdem_index_file.csv")
-
-    if not os.path.isfile(output_index_file_path):
-        # file does not yet exist so make a new one
-        with open(output_index_file_path, 'w', encoding='utf-8') as csv_file:
-            writer = csv.writer(csv_file, delimiter=';')
-            writer.writerow(['Participant_ID', 'saved_file_name', 'file_path', 'text', 'duration'])
+    output_index_file_path = os.path.join(output_index_path, f"pdem_index_file_{dataset_type}.csv")
 
     # get all files from the subset
     files = os.listdir(transcripts_path)
+    rows = []
 
     for file in files:
 
         # 
-        rows = []
         filename, _ = os.path.splitext(file)
         subject = filename.split("_")[0]
 
@@ -117,18 +116,26 @@ def make_index_file(transcripts_path: Path, output_audio_path: Path, output_inde
                 rows.append((subject, output_audio_filename, output_audio_file_path, text, audio_duration))
                 nr += 1
 
-        with open(output_index_file_path, 'a', newline='', encoding='utf-8') as csv_file:
-            writer = csv.writer(csv_file, delimiter=';')
-            writer.writerows(rows)
+    columns = ['Participant_ID', 'saved_file_name', 'file_path', 'text', 'duration']
+    df = pd.DataFrame(rows, columns=columns)
+    df.to_csv(output_index_file_path, sep=";", index=False)
+
+    if chunks > 1:
+        # 
+        n_chunk = math.ceil(len(df) / chunks)
+        with pd.read_csv(output_index_file_path, sep=";", chunksize=n_chunk) as reader:
+            for i, chunk in enumerate(reader):
+                output_chunk_file_path = os.path.join(output_index_path, f"pdem_index_file_{dataset_type}_{i}.csv")
+                chunk.to_csv(output_chunk_file_path, sep=";", index=False)
 
 
 if __name__ == "__main__":
-    
+
     # setup the appropriate paths
-    transcripts_path = Path(r"E:/master/data/PDEM/transcripts")
-    audio_path = Path(r"E:/master/data/dvlog_audio_wav")
-    audio_output_path = Path(r"E:/master/data/PDEM/outputs")
-    index_file_output_path = Path(r"E:/master/data/PDEM/")
+    transcripts_path = Path(r"../PDEM/transcripts")
+    audio_path = Path(r"D:/master/data/dvlog_audio_wav")
+    audio_output_path = Path(r"../PDEM/outputs")
+    index_file_output_path = Path(r"../PDEM")
 
     # 
     for dataset_dir in os.listdir(transcripts_path):
@@ -138,4 +145,4 @@ if __name__ == "__main__":
         get_split_audio_by_transcript(dataset_transcripts_path, audio_path, audio_output_path)
 
         # build the index file
-        make_index_file(dataset_transcripts_path, audio_output_path, index_file_output_path)
+        make_index_file(dataset_dir, dataset_transcripts_path, audio_output_path, index_file_output_path, chunks=20)
