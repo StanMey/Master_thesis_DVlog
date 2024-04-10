@@ -219,7 +219,7 @@ class BimodalDVlogModel(nn.Module):
     
     """
 
-    def __init__(self, audio_shape: tuple[int, int] = (596, 25), video_shape: tuple[int, int] = (596, 136), d_model: int = 256, n_heads: int = 8, use_std: bool = False):
+    def __init__(self, audio_shape: tuple[int, int] = (596, 25), video_shape: tuple[int, int] = (596, 136), d_model: int = 256, uni_n_heads: int = 8, cross_n_heads: int = 16, use_std: bool = False):
         """
         :param audio_shape: The input shape of the audio data, defaults to (596, 25)
         :type audio_shape: tuple[int, int], optional
@@ -227,8 +227,11 @@ class BimodalDVlogModel(nn.Module):
         :type video_shape: tuple[int, int], optional
         :param d_model: The dimension of the encoder representation (d_u in the paper), defaults to 256
         :type d_model: int, optional
-        :param n_heads: The number of attention heads in the encoder, defaults to 8
-        :type n_heads: int, optional
+        :param uni_n_heads: The number of attention heads in the unimodal encoders, defaults to 8
+        :type uni_n_heads: int, optional
+        :param cross_n_heads: The number of attention heads in the cross-attention module, defaults to 16
+        :type cross_n_heads: int, optional
+        :param dropout: , defaults to 
         :type dropout: bool, optional
         :param use_std: Whether to use global average pooling or global standard deviation pooling, defaults to False
         :type use_std: bool, optional
@@ -238,15 +241,16 @@ class BimodalDVlogModel(nn.Module):
         self.audio_shape = audio_shape
         self.video_shape = video_shape
         self.d_model = d_model
-        self.n_heads = n_heads
+        self.uni_n_heads = uni_n_heads
+        self.cross_n_heads = cross_n_heads
         self.use_std = use_std
 
         # setup both encoders
-        self.audio_encoder = UnimodalTransformerEncoder(self.audio_shape, self.d_model, n_heads=self.n_heads)
-        self.video_encoder = UnimodalTransformerEncoder(self.video_shape, self.d_model, n_heads=self.n_heads)
+        self.audio_encoder = UnimodalTransformerEncoder(self.audio_shape, self.d_model, n_heads=self.uni_n_heads)
+        self.video_encoder = UnimodalTransformerEncoder(self.video_shape, self.d_model, n_heads=self.uni_n_heads)
 
         # setup the cross attention and prediction layer
-        self.crossattention = CrossAttentionModule(self.d_model, n_heads=self.n_heads)
+        self.crossattention = CrossAttentionModule(self.d_model, n_heads=self.cross_n_heads)
         self.detection_layer = DetectionLayer(self.d_model*2, use_std=use_std)
 
     def forward(self, features):
