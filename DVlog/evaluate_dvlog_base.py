@@ -5,7 +5,7 @@ import torch
 from torch.utils.data import DataLoader
 from pathlib import Path
 
-from utils.dataloaders import BaseDVlogDataset
+from utils.dataloaders import BaseDVlogDataset, UnimodalEmbeddingsDataset
 from utils.metrics import calculate_performance_measures, calculate_gender_performance_measures, calculate_fairness_measures
 from models.model import BimodalDVlogModel, UnimodalDVlogModel
 
@@ -16,24 +16,25 @@ from models.model import BimodalDVlogModel, UnimodalDVlogModel
 # learning rate: 0.0002
 # sequence length (t): 596
 BATCH_SIZE = 32
-SEQUENCE_LENGTH = 596
+SEQUENCE_LENGTH = 104
 DIM_MODEL = 256
 N_HEADS_UNIMODAL = 8
-N_HEADS_CROSS = 8
+N_HEADS_CROSS = 16
 USE_GPU = True
 USE_STD = False
-SAVED_MODEL_WEIGHTS = "bimodal_dvlog_v2_cross16"
+SAVED_MODEL_WEIGHTS = "unimodal_pdem-vadfunc-whole_v2_t104"
 SAVED_MODEL_PATH = Path(f"trained_models/model_{SAVED_MODEL_WEIGHTS}")
 
 # evaluation parameters
-modality = "both" # can choose between 'acoustic', 'visual', or 'both'
+modality = "uni" # can choose between acoustic, visual, uni, or both
 dataset = "test" # can choose between 'test', 'train', or 'val'
 fairness_unprivileged = "m"
 visual_feature_dim = 136
 acoustic_feature_dim = 25
+uni_feature_dim = 1027
 
 # do the checks over the parameters
-assert modality in ["visual", "acoustic", "both"], f"Modality type not in choices: {modality}"
+assert modality in ["visual", "acoustic", "uni", "both"], f"Modality type not in choices: {modality}"
 assert dataset in ["test", "train", "val"], f"Chosen dataset not in choices: {dataset}"
 assert SAVED_MODEL_PATH.is_file(), f"Saved model not found: {SAVED_MODEL_PATH}"
 
@@ -41,6 +42,7 @@ assert SAVED_MODEL_PATH.is_file(), f"Saved model not found: {SAVED_MODEL_PATH}"
 # setup the paths
 annotations_file = Path(r"./dataset/dvlog_labels_v2.csv")
 data_dir = Path(r"./dataset/dvlog-dataset")
+data_dir = Path(r"./dataset/pdem-dataset")
 
 
 # load the saved version of the model
@@ -50,9 +52,12 @@ if modality == "acoustic":
 elif modality == "visual":
     # visual unimodel
     saved_model = UnimodalDVlogModel(data_shape=(SEQUENCE_LENGTH, visual_feature_dim), d_model=DIM_MODEL, n_heads=N_HEADS_UNIMODAL, use_std=USE_STD)
+elif modality == "uni":
+    # unimodal model
+    saved_model = UnimodalDVlogModel(data_shape=(SEQUENCE_LENGTH, uni_feature_dim), d_model=DIM_MODEL, n_heads=N_HEADS_UNIMODAL, use_std=USE_STD)
 else:
     # bimodal model
-    saved_model = BimodalDVlogModel(d_model=DIM_MODEL, n_heads=N_HEADS_CROSS, use_std=USE_STD)
+    saved_model = BimodalDVlogModel(d_model=DIM_MODEL, uni_n_heads=N_HEADS_UNIMODAL, cross_n_heads=N_HEADS_CROSS, use_std=USE_STD)
 
 saved_model.load_state_dict(torch.load(SAVED_MODEL_PATH))
 # Set the model to evaluation mode
@@ -62,7 +67,10 @@ saved_model.eval()
 # device = torch.device("cuda:0" if USE_GPU and torch.cuda.is_available() else "cpu")
 
 # load in the dataset
-eval_dataset = BaseDVlogDataset(annotations_file, data_dir, dataset=dataset, sequence_length=SEQUENCE_LENGTH, to_tensor=True, with_protected=True)
+if modality == "uni":
+    eval_dataset = UnimodalEmbeddingsDataset(annotations_file, data_dir, dataset, "pdemvad_func_whole", sequence_length=SEQUENCE_LENGTH, to_tensor=True, with_protected=True)
+else:
+    eval_dataset = BaseDVlogDataset(annotations_file, data_dir, dataset=dataset, sequence_length=SEQUENCE_LENGTH, to_tensor=True, with_protected=True)
 
 # setup the dataloader
 eval_dataloader = DataLoader(eval_dataset, batch_size=BATCH_SIZE, shuffle=True)
@@ -83,6 +91,8 @@ with torch.no_grad():
             _, v_inputs, vlabels, v_protected = vdata
         elif modality == "visual":
             v_inputs, _, vlabels, v_protected = vdata
+        elif modality == "uni":
+            v_inputs, vlabels, v_protected = vdata
         else:
             v_inputs_v, v_inputs_a, vlabels, v_protected = vdata
 
@@ -110,4 +120,4 @@ print(f"Equal odds: {eq_odds}\nEqual opportunity: {eq_oppor}\nEqual accuracy: {e
 print("Gender-based metrics:\n----------")
 gender_metrics = calculate_gender_performance_measures(y_labels, predictions, protected)
 for gender_metric in gender_metrics:
-    print("Metrics for label{0}:\n---\nPrecision: {1}\nRecall: {2}\nF1-score: {3}\n----------".format(*gender_metric))
+    print("Metrics for label {0}:\n---\nPrecision: {1}\nRecall: {2}\nF1-score: {3}\n----------".format(*gender_metric))

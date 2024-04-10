@@ -88,15 +88,17 @@ class BaseDVlogDataset(Dataset):
 
 
 class UnimodalEmbeddingsDataset(Dataset):
-    def __init__(self, annotations_file: Path, data_dir: Path, dataset: str, sequence_length: int = 596, to_tensor: bool = False, with_protected: bool = False):
+    def __init__(self, annotations_file: Path, data_dir: Path, dataset: str, feature_name: str, sequence_length: int = 596, to_tensor: bool = False, with_protected: bool = False):
         """Loads in any kind of temporal features or embeddings for the model.
 
-        :param annotations_file: The path to the file holding the annotations and names of the video features
+        :param annotations_file: The path to the file holding the basic information regarding the dataset and id's of the videos
         :type annotations_file: Path
-        :param data_dir: The path to the stored extracted video features
+        :param data_dir: The path to the stored extracted features
         :type data_dir: Path
         :param dataset: Which type of dataset needs to be loaded in
         :type dataset: str
+        :param feature_name: The name of the feature to be loaded in
+        :type feature_name: str
         :param sequence_length: The amount of embeddings to load in, defaults to 596
         :type sequence_length: int, optional
         :param to_tensor: , defaults to False
@@ -104,9 +106,13 @@ class UnimodalEmbeddingsDataset(Dataset):
         :param with_protected: Whether the protected attribute should be returned (for the evaluation part), defaults to False
         :type with_protected: bool, optional
         """
+        # check the input
+        assert os.path.exists(annotations_file), "Annotations file could not be found"
+
         self.dataset = dataset
         self.data_dir = data_dir
         self.data_labels = self.retrieve_dataset_labels(annotations_file)
+        self.feature_name = feature_name
         self.seq_length = sequence_length
         self.to_tensor = to_tensor
         self.with_protected = with_protected
@@ -119,7 +125,7 @@ class UnimodalEmbeddingsDataset(Dataset):
         label = self.data_labels.iloc[idx, 1]
         protected = self.data_labels.iloc[idx, 2]
 
-        embeddings_path = os.path.join(self.data_dir, str(video_id), f"{video_id}.npy")
+        embeddings_path = os.path.join(self.data_dir, str(video_id), f"{self.feature_name}.npy")
         embeddings = np.load(embeddings_path).astype(np.float32)
 
         if self.seq_length > embeddings.shape[0]:

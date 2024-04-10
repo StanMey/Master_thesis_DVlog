@@ -1,14 +1,13 @@
 import torch
 import torch.nn as nn
 import torch.optim as optim
-import numpy as np
 
 # PyTorch TensorBoard support
 # from torch.utils.tensorboard import SummaryWriter
 from torch.utils.data import DataLoader
 from pathlib import Path
 
-from utils.dataloaders import BaseDVlogDataset
+from utils.dataloaders import BaseDVlogDataset, UnimodalEmbeddingsDataset
 from utils.metrics import calculate_performance_measures
 from models.model import UnimodalDVlogModel, BimodalDVlogModel
 
@@ -24,32 +23,39 @@ torch.manual_seed(SEED)
 EPOCHS = 50
 BATCH_SIZE = 32
 LEARNING_RATE = 0.0002
-SEQUENCE_LENGTH = 596
+SEQUENCE_LENGTH = 104
 DIM_MODEL = 256
 N_HEADS_UNIMODAL = 8
 N_HEADS_CROSS = 16
 USE_GPU = True
 USE_STD = False
-MODEL_NAME = "bimodal_dvlog_v2_cross16"
+MODEL_NAME = "unimodal_w2v_seq-avg_t104"
 
 # training parameters
-modality = "both" # can choose between acoustic, visual, or both
+modality = "uni" # can choose between acoustic, visual, uni, or both
 visual_feature_dim = 136
 acoustic_feature_dim = 25
+uni_feature_dim = 300
 
 # do the checks over the parameters
-assert modality in ["visual", "acoustic", "both"], f"Modality type not in choices: {modality}"
+assert modality in ["visual", "acoustic", "uni", "both"], f"Modality type not in choices: {modality}"
 
 # setup the paths
 annotations_file = Path(r"./dataset/dvlog_labels_v2.csv")
 data_dir = Path(r"./dataset/dvlog-dataset")
+# data_dir = Path(r"./dataset/pdem-dataset")
+data_dir = Path(r"./dataset/embeddings-dataset")
 
 # setup the device
 # device = torch.device("cuda:0" if USE_GPU and torch.cuda.is_available() else "cpu")
 
 # load in the dataset
-training_data = BaseDVlogDataset(annotations_file, data_dir, "train", sequence_length=SEQUENCE_LENGTH, to_tensor=True)
-val_data = BaseDVlogDataset(annotations_file, data_dir, "val", sequence_length=SEQUENCE_LENGTH, to_tensor=True)
+if modality == "uni":
+    training_data = UnimodalEmbeddingsDataset(annotations_file, data_dir, "train", "w2v_seq_avg", sequence_length=SEQUENCE_LENGTH, to_tensor=True)
+    val_data = UnimodalEmbeddingsDataset(annotations_file, data_dir, "val", "w2v_seq_avg", sequence_length=SEQUENCE_LENGTH, to_tensor=True)
+else:
+    training_data = BaseDVlogDataset(annotations_file, data_dir, "train", sequence_length=SEQUENCE_LENGTH, to_tensor=True)
+    val_data = BaseDVlogDataset(annotations_file, data_dir, "val", sequence_length=SEQUENCE_LENGTH, to_tensor=True)
 
 # setup the dataloader
 train_dataloader = DataLoader(training_data, batch_size=BATCH_SIZE, shuffle=True)
@@ -62,9 +68,12 @@ if modality == "acoustic":
 elif modality == "visual":
     # visual unimodel
     model = UnimodalDVlogModel(data_shape=(SEQUENCE_LENGTH, visual_feature_dim), d_model=DIM_MODEL, n_heads=N_HEADS_UNIMODAL, use_std=USE_STD)
+elif modality == "uni":
+    # unimodal model
+    model = UnimodalDVlogModel(data_shape=(SEQUENCE_LENGTH, uni_feature_dim), d_model=DIM_MODEL, n_heads=N_HEADS_UNIMODAL, use_std=USE_STD)
 else:
     # bimodal model
-    model = BimodalDVlogModel(d_model=DIM_MODEL, n_heads=N_HEADS_CROSS, use_std=USE_STD)
+    model = BimodalDVlogModel(d_model=DIM_MODEL, uni_n_heads=N_HEADS_UNIMODAL, cross_n_heads=N_HEADS_CROSS, use_std=USE_STD)
 
 # if torch.cuda.is_available():
 #     model.cuda()
@@ -76,7 +85,7 @@ optimizer = optim.Adam(model.parameters(), lr=LEARNING_RATE)
 # run the training
 epoch_number = 0
 best_vloss = 1_000_000
-best_f1 = 0.0
+# best_f1 = 0.0
 
 for epoch in range(EPOCHS):  # loop over the dataset multiple times
     print('EPOCH {}:'.format(epoch_number + 1))
@@ -91,6 +100,8 @@ for epoch in range(EPOCHS):  # loop over the dataset multiple times
             _, inputs, labels = data
         elif modality == "visual":
             inputs, _, labels = data
+        elif modality == "uni":
+            inputs, labels = data
         else:
             inputs_v, inputs_a, labels = data
 
@@ -128,8 +139,10 @@ for epoch in range(EPOCHS):  # loop over the dataset multiple times
                 _, v_inputs, vlabels = vdata
             elif modality == "visual":
                 v_inputs, _, vlabels = vdata
+            elif modality == "uni":
+                v_inputs, vlabels = vdata
             else:
-                v_inputs_v, v_inputs_a, vlabels = data
+                v_inputs_v, v_inputs_a, vlabels = vdata
 
 
             if modality == "both":
