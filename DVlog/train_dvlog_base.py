@@ -23,13 +23,14 @@ torch.manual_seed(SEED)
 EPOCHS = 50
 BATCH_SIZE = 32
 LEARNING_RATE = 0.0002
-SEQUENCE_LENGTH = 104
+SEQUENCE_LENGTH = 596
 DIM_MODEL = 256
 N_HEADS_UNIMODAL = 8
 N_HEADS_CROSS = 16
 USE_GPU = True
 USE_STD = False
-MODEL_NAME = "unimodal_w2v_seq-avg_t104"
+MODEL_NAME = "unimodal_w2v_seconds_normal_avg"
+FEATURE_NAME = "w2v_seconds_normal_avg"
 
 # training parameters
 modality = "uni" # can choose between acoustic, visual, uni, or both
@@ -51,8 +52,8 @@ data_dir = Path(r"./dataset/embeddings-dataset")
 
 # load in the dataset
 if modality == "uni":
-    training_data = UnimodalEmbeddingsDataset(annotations_file, data_dir, "train", "w2v_seq_avg", sequence_length=SEQUENCE_LENGTH, to_tensor=True)
-    val_data = UnimodalEmbeddingsDataset(annotations_file, data_dir, "val", "w2v_seq_avg", sequence_length=SEQUENCE_LENGTH, to_tensor=True)
+    training_data = UnimodalEmbeddingsDataset(annotations_file, data_dir, "train", feature_name=FEATURE_NAME, sequence_length=SEQUENCE_LENGTH, to_tensor=True)
+    val_data = UnimodalEmbeddingsDataset(annotations_file, data_dir, "val", feature_name=FEATURE_NAME, sequence_length=SEQUENCE_LENGTH, to_tensor=True)
 else:
     training_data = BaseDVlogDataset(annotations_file, data_dir, "train", sequence_length=SEQUENCE_LENGTH, to_tensor=True)
     val_data = BaseDVlogDataset(annotations_file, data_dir, "val", sequence_length=SEQUENCE_LENGTH, to_tensor=True)
@@ -158,7 +159,7 @@ for epoch in range(EPOCHS):  # loop over the dataset multiple times
             y_labels.append(vlabels.numpy())
     
     avg_vloss = running_vloss / (i + 1)
-    accuracy, _, _, fscore = calculate_performance_measures(y_labels, predictions)
+    accuracy, _, _, fscore, _ = calculate_performance_measures(y_labels, predictions)
     print('LOSS train {} validation {}'.format(avg_loss, avg_vloss))
     print(f"Validation accuracy: {accuracy}; F1-score: {fscore}")
 

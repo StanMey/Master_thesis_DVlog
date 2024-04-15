@@ -22,16 +22,17 @@ N_HEADS_UNIMODAL = 8
 N_HEADS_CROSS = 16
 USE_GPU = True
 USE_STD = False
-SAVED_MODEL_WEIGHTS = "unimodal_pdem-vadfunc-whole_v2_t104"
+SAVED_MODEL_WEIGHTS = "unimodal_w2v_seq-avg_t104"
 SAVED_MODEL_PATH = Path(f"trained_models/model_{SAVED_MODEL_WEIGHTS}")
 
 # evaluation parameters
 modality = "uni" # can choose between acoustic, visual, uni, or both
 dataset = "test" # can choose between 'test', 'train', or 'val'
 fairness_unprivileged = "m"
+feature_name = "w2v_seq_avg"
 visual_feature_dim = 136
 acoustic_feature_dim = 25
-uni_feature_dim = 1027
+uni_feature_dim = 300
 
 # do the checks over the parameters
 assert modality in ["visual", "acoustic", "uni", "both"], f"Modality type not in choices: {modality}"
@@ -42,7 +43,8 @@ assert SAVED_MODEL_PATH.is_file(), f"Saved model not found: {SAVED_MODEL_PATH}"
 # setup the paths
 annotations_file = Path(r"./dataset/dvlog_labels_v2.csv")
 data_dir = Path(r"./dataset/dvlog-dataset")
-data_dir = Path(r"./dataset/pdem-dataset")
+# data_dir = Path(r"./dataset/pdem-dataset")
+data_dir = Path(r"./dataset/embeddings-dataset")
 
 
 # load the saved version of the model
@@ -68,7 +70,7 @@ saved_model.eval()
 
 # load in the dataset
 if modality == "uni":
-    eval_dataset = UnimodalEmbeddingsDataset(annotations_file, data_dir, dataset, "pdemvad_func_whole", sequence_length=SEQUENCE_LENGTH, to_tensor=True, with_protected=True)
+    eval_dataset = UnimodalEmbeddingsDataset(annotations_file, data_dir, dataset, feature_name=feature_name, sequence_length=SEQUENCE_LENGTH, to_tensor=True, with_protected=True)
 else:
     eval_dataset = BaseDVlogDataset(annotations_file, data_dir, dataset=dataset, sequence_length=SEQUENCE_LENGTH, to_tensor=True, with_protected=True)
 
@@ -108,12 +110,13 @@ with torch.no_grad():
         protected.append(v_protected)
 
 # get the performance and fairness metrics
-accuracy, precision, recall, fscore = calculate_performance_measures(y_labels, predictions)
+accuracy, w_precision, w_recall, w_fscore, m_fscore = calculate_performance_measures(y_labels, predictions)
 eq_odds, eq_oppor, eq_acc = calculate_fairness_measures(y_labels, predictions, protected, fairness_unprivileged)
 
 # print out all the metrics
 print(f"Model: {SAVED_MODEL_WEIGHTS}\n----------")
-print(f"Accuracy: {accuracy}\nPrecision: {precision}\nRecall: {recall}\nF1-score: {fscore}\n----------")
+print(f"(weighted) -->\nAccuracy: {accuracy}\nPrecision: {w_precision}\nRecall: {w_recall}\nF1-score: {w_fscore}")
+print(f"(macro) -->\nF1-score: {m_fscore}\n----------")
 print(f"Equal odds: {eq_odds}\nEqual opportunity: {eq_oppor}\nEqual accuracy: {eq_oppor}\n----------")
 
 # print out the gender-based metrics
