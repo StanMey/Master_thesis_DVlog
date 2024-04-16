@@ -29,6 +29,7 @@ MANIFEST
 # own stuff
 data
 DVlog/dataset/dvlog-dataset
+DVlog/dataset/pdem-dataset
 DVlog/dataset/embeddings-dataset
 DVlog/trained_models
 
