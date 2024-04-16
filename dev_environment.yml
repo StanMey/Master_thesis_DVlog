@@ -14,3 +14,6 @@ dependencies:
   - scikit-learn
   - moviepy
   - pydub
+  - gensim
+  - spacy
+  - transformers
