@@ -6,6 +6,8 @@ import torch
 from torch.utils.data import Dataset
 from pathlib import Path
 
+from util import ConfigDict
+
 
 class BaseDVlogDataset(Dataset):
     def __init__(self, annotations_file: Path, data_dir: Path, dataset: str, sequence_length: int = 596, to_tensor: bool = False, with_protected: bool = False):
@@ -166,3 +168,78 @@ class UnimodalEmbeddingsDataset(Dataset):
         return df_annotations[df_annotations["dataset"] == self.dataset]
 
 
+class MultimodalEmbeddingsDataset(Dataset):
+    def __init__(self, dataset: str, train_config: ConfigDict, to_tensor: bool = False, with_protected: bool = False):
+        """Loads in any kind of temporal features or embeddings for the model.
+
+        :param dataset: Which type of dataset needs to be loaded in (train, test, or val)
+        :type dataset: str
+        :param train_config: 
+        :type train_config: ConfigDict
+        :param to_tensor: , defaults to False
+        :type to_tensor: bool, optional
+        :param with_protected: Whether the protected attribute should be returned (for the evaluation part), defaults to False
+        :type with_protected: bool, optional
+        """
+        self.dataset = dataset
+        self.config = train_config
+
+        # check the input
+        self.annotations_file = self.config.annotations_file
+        assert os.path.exists(self.annotations_file), "Annotations file could not be found"
+
+        self.data_labels = self.retrieve_dataset_labels(self.annotations_file)
+        self.seq_length = self.config.sequence_length
+        self.to_tensor = to_tensor
+        self.with_protected = with_protected
+
+    def __len__(self):
+        return len(self.data_labels)
+
+    def __getitem__(self, idx):
+        video_id = self.data_labels.iloc[idx, 0]
+        label = self.data_labels.iloc[idx, 1]
+        protected = self.data_labels.iloc[idx, 2]
+
+        embeddings_path = os.path.join(self.data_dir, str(video_id), f"{self.feature_name}.npy")
+        embeddings = np.load(embeddings_path).astype(np.float32)
+
+        if self.seq_length > embeddings.shape[0]:
+            # the sequence is to short, so apply the padding to the timesteps (https://stackoverflow.com/questions/73444621/padding-one-numpy-array-to-achieve-the-same-number-os-columns-of-another-numpy-a)
+            embeddings_diff_timesteps = self.seq_length - embeddings.shape[0]
+            padded_embeddings = np.concatenate((embeddings, np.zeros((embeddings_diff_timesteps, embeddings.shape[1]))), axis=0)
+
+        else:
+            # the sequence is to long, so apply the truncate
+            padded_embeddings = embeddings[:self.seq_length]
+        
+        # format the label as a class
+        class_label = np.zeros(2)
+        class_label[label] = 1
+
+        if self.to_tensor:
+            # convert the tuple to a tensor
+            output_item =  torch.Tensor(padded_embeddings), torch.Tensor(class_label)
+        else:
+            output_item = (padded_embeddings, class_label)
+
+        if self.with_protected:
+            # also add the protected label to the output
+            output_item = (*output_item, protected)
+        
+        return output_item
+    
+    def _get_feature(self, idx):
+        ...
+
+
+    def retrieve_dataset_labels(self, annotations_file: Path):
+        """Filter the annotation dataset for the specific dataset we want to use.
+
+        :param annotations_file: _description_
+        :type annotations_file: Path
+        """
+        df_annotations = pd.read_csv(annotations_file)
+
+        # filter and return
+        return df_annotations[df_annotations["dataset"] == self.dataset]
