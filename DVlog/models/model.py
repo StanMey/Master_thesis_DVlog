@@ -142,7 +142,7 @@ class UnimodalDVlogModel(nn.Module):
 
     def __init__(self, data_shape: tuple[int, int], d_model: int = 256, n_heads: int = 8, use_std: bool = False):
         """
-        :param data_shape: The shape of the input data
+        :param data_shape: The shape of the input data, [rows, columns]
         :type data_shape: tuple[int, int]
         :param d_model: The dimension of the encoder representation (d_u in the paper), defaults to 256
         :type d_model: int, optional

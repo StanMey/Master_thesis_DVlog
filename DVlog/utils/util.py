@@ -31,7 +31,7 @@ def validate_config(config: dict):
         assert keys_exists(config, "model", "encoder", str(x_encoder)), f"Encoder {x_encoder} not defined properly"
 
         # check whether the encoder has a feature name and dimension
-        for key in ["feature_name", "feature_dim", "data_dir", "n_heads"]:
+        for key in ["feature_name", "feature_dim", "data_dir"]:
             assert keys_exists(config, "model", "encoder", str(x_encoder), key), f"Key {key} for encoder {x_encoder} not defined properly"
 
 
@@ -76,6 +76,10 @@ class ConfigDict:
     # learning rate: 0.0002
     # sequence length (t): 596
     # SEED = 42
+
+    # OTHER DEFAULTS
+    # dimension model: 256
+    # n-heads for multimodal: 16
     """
 
     def __init__(self, config: dict) -> None:
@@ -84,13 +88,19 @@ class ConfigDict:
         # setup the overall variables
         self.model_name = get_config_value(self.config, "general", "model_name")
         self.annotations_file = Path(get_config_value(self.config, "paths", "annotations_file"))
+
+        # retrieve the model specific variables
         self.n_modalities = int(get_config_value(self.config, "model", "n_modalities"))
+        self.sequence_length = 596 if not keys_exists(self.config, "model", "sequence_length") else get_config_value(self.config, "model", "sequence_length")
+        self.dim_model = 256 if not keys_exists(self.config, "model", "dim_model") else get_config_value(self.config, "model", "dim_model")
+        self.uni_n_heads = 16 if not keys_exists(self.config, "model", "encoder", "n_heads") else get_config_value(self.config, "model", "encoder", "n_heads")
+        self.multi_n_heads = 16 if not keys_exists(self.config, "model", "multimodal", "n_heads") else get_config_value(self.config, "model", "multimodal", "n_heads")
+        self.detectlayer_use_std = False if not keys_exists(self.config, "model", "detection_layer", "use_std") else get_config_value(self.config, "model", "detection_layer", "use_std")
 
         # set up the training variables (here we do have to check each feature since we otherwise can use default values)
         self.batch_size = 32 if not keys_exists(self.config, "training", "batch_size") else get_config_value(self.config, "training", "batch_size")
         self.epochs = 50 if not keys_exists(self.config, "training", "epochs") else get_config_value(self.config, "training", "epochs")
         self.learning_rate = 0.0002 if not keys_exists(self.config, "training", "learning_rate") else get_config_value(self.config, "training", "learning_rate")
-        self.sequence_length = 596 if not keys_exists(self.config, "model", "sequence_length") else get_config_value(self.config, "model", "sequence_length")
         self.seed = 42 if not keys_exists(self.config, "training", "seed") else get_config_value(self.config, "training", "seed")
 
         # setup the data directories (begin with the first one and then check if we have others)
@@ -98,7 +108,6 @@ class ConfigDict:
         self.encoder1_feature_name = self.encoder1.get("feature_name")
         self.encoder1_dim = self.encoder1.get("feature_dim")
         self.encoder1_data_dir = Path(self.encoder1.get("data_dir"))
-        self.encoder1_heads = int(self.encoder1.get("n_heads"))
 
         if self.n_modalities >= 2:
             # specifically check for larger than 2 (we also want the second encoder when we have 3 modalities)
@@ -106,14 +115,12 @@ class ConfigDict:
             self.encoder2_feature_name = self.encoder2.get("feature_name")
             self.encoder2_dim = self.encoder2.get("feature_dim")
             self.encoder2_data_dir = Path(self.encoder2.get("data_dir"))
-            self.encoder2_heads = int(self.encoder2.get("n_heads"))
         
         if self.n_modalities == 3:
             self.encoder3 = get_config_value(self.config, "model", "encoder", "3")
             self.encoder3_feature_name = self.encoder3.get("feature_name")
             self.encoder3_dim = self.encoder3.get("feature_dim")
             self.encoder3_data_dir = Path(self.encoder3.get("data_dir"))
-            self.encoder3_heads = int(self.encoder3.get("n_heads"))
 
 
 def process_config(config: dict) -> ConfigDict:

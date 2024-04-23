@@ -18,7 +18,7 @@ from models.model import UnimodalDVlogModel, BimodalDVlogModel
 from utils.dataloaders import MultimodalEmbeddingsDataset
 from utils.metrics import calculate_performance_measures
 from utils.util import ConfigDict
-from utils.util import get_config_value, validate_config, process_config
+from utils.util import validate_config, process_config
 
 
 def train_cli(
@@ -44,12 +44,13 @@ def train(
     config = Config().from_disk(config_path)
     validate_config(config)
     config_dict = process_config(config)
+    print(config, config_dict)
 
     # begin setting up the model for the training cycle
     torch.manual_seed(config_dict.seed)
 
     #TODO setup the device
-    # device = torch.device("cuda:0" if USE_GPU and torch.cuda.is_available() else "cpu")
+    # device = torch.device("cuda:0" if use_gpu and torch.cuda.is_available() else "cpu")
 
     # load in the dataset
     training_data = MultimodalEmbeddingsDataset("train", config_dict, to_tensor=True)
@@ -62,17 +63,18 @@ def train(
     # setup the model
     if config_dict.n_modalities == 1:
         # initiate an unimodal model
-        model = 1
+        model = UnimodalDVlogModel((config_dict.sequence_length, config_dict.encoder1_dim),
+                                   d_model=config_dict.dim_model, n_heads=config_dict.uni_n_heads, use_std=config_dict.detectlayer_use_std)
 
     elif config_dict.n_modalities == 2:
         # initiate a bimodal model
-        
-        model = 1
+        model = BimodalDVlogModel((config_dict.sequence_length, config_dict.encoder1_dim), (config_dict.sequence_length, config_dict.encoder2_dim),
+                                   d_model=config_dict.dim_model, uni_n_heads=config_dict.uni_n_heads, cross_n_heads=config_dict.multi_n_heads, use_std=config_dict.detectlayer_use_std)
 
     else:
         # initiate a trimodal model
+        raise NotImplementedError("Not yet implemented")
         model = 1
-
 
     # train the actual model
     train_model(model, train_dataloader, val_dataloader, config_dict)
@@ -111,7 +113,7 @@ def train_model(model, train_dataloader, val_dataloader, config_dict: ConfigDict
             # save statistics
             running_loss += loss.item()
         avg_loss = running_loss / (i + 1)
-    
+
         # Per-Epoch Activity
         # Set the model to evaluation mode, disabling dropout and using population
         # statistics for batch normalization.
