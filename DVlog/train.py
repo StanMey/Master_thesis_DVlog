@@ -36,6 +36,8 @@ def train(
     output_path: Union[str, Path],
     use_gpu: int
 ):
+    """Function to extract and process the configuration file and setup the models and dataloaders.
+    """
     # check whether the paths exists
     assert os.path.exists(config_path), "Config file does not exist"
     assert os.path.isdir(output_path), "Output path is not a directory"
@@ -80,8 +82,9 @@ def train(
     train_model(model, train_dataloader, val_dataloader, config_dict, output_path)
 
 
-def train_model(model, train_dataloader, val_dataloader, config_dict: ConfigDict, output_path: Path):
-    
+def train_model(model, train_dataloader: DataLoader, val_dataloader: DataLoader, config_dict: ConfigDict, output_path: Path):
+    """Run the training process using the model and dataloader.
+    """
     # set the loss function and optimizer
     criterion = nn.CrossEntropyLoss()
     optimizer = optim.Adam(model.parameters(), lr=config_dict.learning_rate)
