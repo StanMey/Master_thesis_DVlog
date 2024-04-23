@@ -49,9 +49,8 @@ class MultimodalEmbeddingsDataset(Dataset):
             # load in the additional embedding
             embeddings = (*embeddings, self._retrieve_embedding(video_id, self.config.encoder2_data_dir, self.config.encoder2_feature_name))
 
-        if self.config.n_modalities >= 2:
+        if self.config.n_modalities == 3:
             # load in the last embedding
-            raise NotImplementedError("Not yet implemented")
             embeddings = (*embeddings, self._retrieve_embedding(video_id, self.config.encoder3_data_dir, self.config.encoder3_feature_name))
 
         # apply the padding over all the embeddings
