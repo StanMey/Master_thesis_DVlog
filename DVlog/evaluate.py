@@ -16,7 +16,7 @@ from models.model import UnimodalDVlogModel, BimodalDVlogModel
 from models.trimodal_model import TrimodalDVlogModel
 
 from utils.dataloaders import MultimodalEmbeddingsDataset
-from utils.metrics import calculate_performance_measures, calculate_fairness_measures2, calculate_gender_performance_measures, calculate_fairness_measures
+from utils.metrics import calculate_performance_measures, calculate_gender_performance_measures, calculate_fairness_measures
 from utils.util import ConfigDict
 from utils.util import validate_config, process_config
 
@@ -71,7 +71,6 @@ def evaluate(
 
     else:
         # initiate a trimodal model
-# initiate a trimodal model
         seq_length = config_dict.sequence_length
         saved_model = TrimodalDVlogModel((seq_length, config_dict.encoder1_dim), (seq_length, config_dict.encoder2_dim), (seq_length, config_dict.encoder3_dim),
                                    d_model=config_dict.dim_model, uni_n_heads=config_dict.uni_n_heads, cross_n_heads=config_dict.multi_n_heads, use_std=config_dict.detectlayer_use_std)

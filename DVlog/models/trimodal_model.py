@@ -1,7 +1,7 @@
 import torch
 
 from torch import nn
-from model import UnimodalTransformerEncoder, DetectionLayer
+from models.model import UnimodalTransformerEncoder, DetectionLayer
 
 
 class CrissCrossAttentionModule(nn.Module):
