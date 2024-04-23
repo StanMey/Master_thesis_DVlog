@@ -23,7 +23,7 @@ def validate_config(config: dict):
 
     # check whether the annotations_file exists
     annotations_file = Path(get_config_value(config, "paths", "annotations_file"))
-    assert os.path.exists(), f"Annotations file could not be found -> {annotations_file}"
+    assert os.path.exists(annotations_file), f"Annotations file could not be found -> {annotations_file}"
 
     # check if the amount of encoders coincides with the amount of modalities and if everything has been entered correctly
     for x_encoder in range(1, n_modalities + 1):

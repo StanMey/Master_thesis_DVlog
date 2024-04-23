@@ -77,10 +77,10 @@ def train(
         model = 1
 
     # train the actual model
-    train_model(model, train_dataloader, val_dataloader, config_dict)
+    train_model(model, train_dataloader, val_dataloader, config_dict, output_path)
 
 
-def train_model(model, train_dataloader, val_dataloader, config_dict: ConfigDict):
+def train_model(model, train_dataloader, val_dataloader, config_dict: ConfigDict, output_path: Path):
     
     # set the loss function and optimizer
     criterion = nn.CrossEntropyLoss()
@@ -98,7 +98,12 @@ def train_model(model, train_dataloader, val_dataloader, config_dict: ConfigDict
         for i, data in enumerate(train_dataloader):
 
             # get the inputs
-            inputs, labels = data[:-1], data[-1]
+            if config_dict.n_modalities == 1:
+                # only one modality so unpack the set
+                inputs, labels = data
+            else:
+                # more modalities so keep the tuple set
+                inputs, labels = data[:-1], data[-1]
 
             # zero the parameter gradients
             optimizer.zero_grad()
@@ -127,7 +132,12 @@ def train_model(model, train_dataloader, val_dataloader, config_dict: ConfigDict
             for i, vdata in enumerate(val_dataloader):
 
                 # get the validation inputs
-                v_inputs, vlabels = vdata[:-1], vdata[-1]
+                if config_dict.n_modalities == 1:
+                    # only one modality so unpack the set
+                    v_inputs, vlabels = vdata
+                else:
+                    # more modalities so keep the input tuple set
+                    v_inputs, vlabels = vdata[:-1], vdata[-1]
 
                 # get the predictions of the model
                 voutputs = model(v_inputs)
@@ -140,14 +150,14 @@ def train_model(model, train_dataloader, val_dataloader, config_dict: ConfigDict
                 y_labels.append(vlabels.numpy())
         
         avg_vloss = running_vloss / (i + 1)
-        accuracy, _, _, fscore = calculate_performance_measures(y_labels, predictions)
+        accuracy, _, _, fscore, _ = calculate_performance_measures(y_labels, predictions)
         print('LOSS train {} validation {}'.format(avg_loss, avg_vloss))
         print(f"Validation accuracy: {accuracy}; F1-score: {fscore}")
 
         # Track best performance, and save the model's state
         if avg_vloss < best_vloss:
             best_vloss = avg_vloss
-            model_path = 'trained_models/model_{}'.format(config_dict.model_name)
+            model_path = os.path.join(output_path, f"model_{config_dict.model_name}")
             torch.save(model.state_dict(), model_path)
 
     print('Finished Training')
