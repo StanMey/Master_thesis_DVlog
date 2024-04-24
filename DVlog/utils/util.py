@@ -101,7 +101,6 @@ class ConfigDict:
         self.batch_size = 32 if not keys_exists(self.config, "training", "batch_size") else get_config_value(self.config, "training", "batch_size")
         self.epochs = 50 if not keys_exists(self.config, "training", "epochs") else get_config_value(self.config, "training", "epochs")
         self.learning_rate = 0.0002 if not keys_exists(self.config, "training", "learning_rate") else get_config_value(self.config, "training", "learning_rate")
-        self.seed = 42 if not keys_exists(self.config, "training", "seed") else get_config_value(self.config, "training", "seed")
 
         # setup the data directories (begin with the first one and then check if we have others)
         self.encoder1 = get_config_value(self.config, "model", "encoder", "1")

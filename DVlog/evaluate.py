@@ -1,5 +1,6 @@
 import os
 import torch
+torch.manual_seed(42)
 
 import typer
 from typing_extensions import Annotated

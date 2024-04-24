@@ -1,5 +1,7 @@
 import os
 import torch
+torch.manual_seed(42)
+
 import torch.nn as nn
 import torch.optim as optim
 
@@ -48,11 +50,9 @@ def train(
     config = Config().from_disk(config_path)
     validate_config(config)
     config_dict = process_config(config)
-    print(config, config_dict)
+    print(config_dict)
 
     # begin setting up the model for the training cycle
-    torch.manual_seed(config_dict.seed)
-
     #TODO setup the device
     # device = torch.device("cuda:0" if use_gpu and torch.cuda.is_available() else "cpu")
 
