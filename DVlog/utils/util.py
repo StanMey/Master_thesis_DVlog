@@ -93,7 +93,7 @@ class ConfigDict:
         self.n_modalities = int(get_config_value(self.config, "model", "n_modalities"))
         self.sequence_length = 596 if not keys_exists(self.config, "model", "sequence_length") else get_config_value(self.config, "model", "sequence_length")
         self.dim_model = 256 if not keys_exists(self.config, "model", "dim_model") else get_config_value(self.config, "model", "dim_model")
-        self.uni_n_heads = 16 if not keys_exists(self.config, "model", "encoder", "n_heads") else get_config_value(self.config, "model", "encoder", "n_heads")
+        self.uni_n_heads = 8 if not keys_exists(self.config, "model", "encoder", "n_heads") else get_config_value(self.config, "model", "encoder", "n_heads")
         self.multi_n_heads = 16 if not keys_exists(self.config, "model", "multimodal", "n_heads") else get_config_value(self.config, "model", "multimodal", "n_heads")
         self.detectlayer_use_std = False if not keys_exists(self.config, "model", "detection_layer", "use_std") else get_config_value(self.config, "model", "detection_layer", "use_std")
 
@@ -121,6 +121,10 @@ class ConfigDict:
             self.encoder3_feature_name = self.encoder3.get("feature_name")
             self.encoder3_dim = self.encoder3.get("feature_dim")
             self.encoder3_data_dir = Path(self.encoder3.get("data_dir"))
+    
+    def __repr__(self) -> str:
+        pass
+        
 
 
 def process_config(config: dict) -> ConfigDict:
