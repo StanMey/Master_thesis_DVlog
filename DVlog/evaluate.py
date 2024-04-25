@@ -54,7 +54,8 @@ def evaluate(
     config = Config().from_disk(config_path)
     validate_config(config)
     config_dict = process_config(config)
-    print(config)
+    if verbose:
+        print(config)
 
     # begin setting up the model for the evaluation cycle
     model_dir_path = Path(os.path.join(model_path, config_dict.model_name))

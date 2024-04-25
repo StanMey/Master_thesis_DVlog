@@ -51,7 +51,6 @@ def train(
     config = Config().from_disk(config_path)
     validate_config(config)
     config_dict = process_config(config)
-    print(config_dict)
 
     # begin setting up the model for the training cycle
     #TODO setup the device

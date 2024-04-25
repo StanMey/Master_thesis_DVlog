@@ -129,6 +129,9 @@ class ConfigDict:
         # overwrite all values which might have been overwritten with a default value
         config_dict["model"]['dim_model'] = self.dim_model
         config_dict["model"]['sequence_length'] = self.sequence_length
+        config_dict["model"]["encoder"]["n_heads"] = self.uni_n_heads
+        config_dict["model"]["multimodal"]["n_heads"] = self.multi_n_heads
+        config_dict["model"]["detection_layer"]["use_std"] = self.detectlayer_use_std
 
         config_dict["training"]['epochs'] = self.epochs
         config_dict["training"]['batch_size'] = self.batch_size
