@@ -54,9 +54,12 @@ def evaluate(
     config = Config().from_disk(config_path)
     validate_config(config)
     config_dict = process_config(config)
+    print(config)
 
     # begin setting up the model for the evaluation cycle
-    saved_model_path = Path(os.path.join(model_path, f"model_{config_dict.model_name}"))
+    model_dir_path = Path(os.path.join(model_path, config_dict.model_name))
+    saved_model_path = Path(os.path.join(model_dir_path, f"model_{config_dict.model_name}"))
+    assert model_dir_path.is_dir(), f"Saved model directory not found: {model_dir_path}"
     assert saved_model_path.is_file(), f"Saved model not found: {saved_model_path}"
 
     # setup the initial model

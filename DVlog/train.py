@@ -1,4 +1,5 @@
 import os
+import json
 import torch
 torch.manual_seed(42)
 
@@ -88,6 +89,10 @@ def train(
 def train_model(model, train_dataloader: DataLoader, val_dataloader: DataLoader, config_dict: ConfigDict, output_path: Path):
     """Run the training process using the model and dataloader.
     """
+    # setup the saving directory
+    model_output_path = os.path.join(output_path, config_dict.model_name)
+    os.makedirs(model_output_path, exist_ok=True)
+
     # set the loss function and optimizer
     criterion = nn.CrossEntropyLoss()
     optimizer = optim.Adam(model.parameters(), lr=config_dict.learning_rate)
@@ -162,9 +167,14 @@ def train_model(model, train_dataloader: DataLoader, val_dataloader: DataLoader,
 
         # Track best performance, and save the model's state
         if avg_vloss < best_vloss:
+            # save the model itself
             best_vloss = avg_vloss
-            model_path = os.path.join(output_path, f"model_{config_dict.model_name}")
+            model_path = os.path.join(model_output_path, f"model_{config_dict.model_name}")
             torch.save(model.state_dict(), model_path)
+
+    # save the config dictionary
+    with open(os.path.join(model_output_path, "model_params.json"), "w") as outfile: 
+        json.dump(config_dict.to_dict(), outfile)
 
     print('Finished Training')
 

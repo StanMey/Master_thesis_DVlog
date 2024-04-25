@@ -88,6 +88,7 @@ class ConfigDict:
         # setup the overall variables
         self.model_name = get_config_value(self.config, "general", "model_name")
         self.annotations_file = Path(get_config_value(self.config, "paths", "annotations_file"))
+        self.general_data_dir = Path(get_config_value(self.config, "paths", "data_dir"))
 
         # retrieve the model specific variables
         self.n_modalities = int(get_config_value(self.config, "model", "n_modalities"))
@@ -121,8 +122,22 @@ class ConfigDict:
             self.encoder3_dim = self.encoder3.get("feature_dim")
             self.encoder3_data_dir = Path(self.encoder3.get("data_dir"))
     
+
+    def to_dict(self) -> dict:
+        config_dict = self.config
+
+        # overwrite all values which might have been overwritten with a default value
+        config_dict["model"]['dim_model'] = self.dim_model
+        config_dict["model"]['sequence_length'] = self.sequence_length
+
+        config_dict["training"]['epochs'] = self.epochs
+        config_dict["training"]['batch_size'] = self.batch_size
+        config_dict["training"]['learning_rate'] = self.learning_rate
+
+        return config_dict
+
     def __repr__(self) -> str:
-        pass
+        return str(self.to_dict())
         
 
 
