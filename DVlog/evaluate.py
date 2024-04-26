@@ -59,7 +59,7 @@ def evaluate(
 
     # begin setting up the model for the evaluation cycle
     model_dir_path = Path(os.path.join(model_path, config_dict.model_name))
-    saved_model_path = Path(os.path.join(model_dir_path, f"model_{config_dict.model_name}"))
+    saved_model_path = Path(os.path.join(model_dir_path, f"model_{config_dict.model_name}.pth"))
     assert model_dir_path.is_dir(), f"Saved model directory not found: {model_dir_path}"
     assert saved_model_path.is_file(), f"Saved model not found: {saved_model_path}"
 

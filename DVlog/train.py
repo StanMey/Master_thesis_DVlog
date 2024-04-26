@@ -164,11 +164,11 @@ def train_model(model, train_dataloader: DataLoader, val_dataloader: DataLoader,
         print('LOSS train {} validation {}'.format(avg_loss, avg_vloss))
         print(f"Validation accuracy: {accuracy}; F1-score: {fscore}")
 
-        # Track best performance, and save the model's state
+        # Track best performance, and save the model's state (for Inference later on)
         if avg_vloss < best_vloss:
             # save the model itself
             best_vloss = avg_vloss
-            model_path = os.path.join(model_output_path, f"model_{config_dict.model_name}")
+            model_path = os.path.join(model_output_path, f"model_{config_dict.model_name}.pth")
             torch.save(model.state_dict(), model_path)
 
     # save the config dictionary
