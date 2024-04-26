@@ -3,7 +3,9 @@ import pandas as pd
 
 from itertools import chain
 from typing import Tuple
-from sklearn.metrics import accuracy_score, confusion_matrix, precision_recall_fscore_support
+from sklearn.metrics import (
+    accuracy_score, confusion_matrix, precision_recall_fscore_support
+)
 
 
 ## Performance measures
@@ -88,9 +90,11 @@ def calculate_fairness_measures(y_true: list[np.ndarray], y_pred: list[np.ndarra
     eq_oppor = unpriv_tpr / priv_tpr
     eq_acc = unpriv_acc / priv_acc
 
-    # for equalized odds we use the approach by fairlearn (https://fairlearn.org/main/user_guide/assessment/common_fairness_metrics.html#equalized-odds)
+    # for the equalized odds we use the approach by fairlearn (https://fairlearn.org/main/user_guide/assessment/common_fairness_metrics.html#equalized-odds)
     # "The smaller of two metrics: `true_positive_rate_ratio` and `false_positive_rate_ratio`."
+    # print((unpriv_tpr / priv_tpr), (unpriv_fpr / priv_fpr))
     eq_odds = min((unpriv_tpr / priv_tpr), (unpriv_fpr / priv_fpr))
+    # print(eq_odds)
 
     return eq_odds, eq_oppor, eq_acc
 

@@ -1,5 +1,8 @@
 import os
+import json
 import torch
+torch.manual_seed(42)
+
 import torch.nn as nn
 import torch.optim as optim
 
@@ -15,9 +18,12 @@ from torch.utils.data import DataLoader
 from pathlib import Path
 
 from models.model import UnimodalDVlogModel, BimodalDVlogModel
-from utils.dataloaders import BaseDVlogDataset, UnimodalEmbeddingsDataset
+from models.trimodal_model import TrimodalDVlogModel
+
+from utils.dataloaders import MultimodalEmbeddingsDataset
 from utils.metrics import calculate_performance_measures
-from utils.util import get_config_value, validate_config
+from utils.util import ConfigDict
+from utils.util import validate_config, process_config
 
 
 def train_cli(
@@ -35,6 +41,8 @@ def train(
     output_path: Union[str, Path],
     use_gpu: int
 ):
+    """Function to extract and process the configuration file and setup the models and dataloaders.
+    """
     # check whether the paths exists
     assert os.path.exists(config_path), "Config file does not exist"
     assert os.path.isdir(output_path), "Output path is not a directory"
@@ -42,53 +50,57 @@ def train(
     # check the config file on completeness
     config = Config().from_disk(config_path)
     validate_config(config)
+    config_dict = process_config(config)
 
     # begin setting up the model for the training cycle
-    torch.manual_seed(get_config_value(config, "training", "seed"))
+    #TODO setup the device
+    # device = torch.device("cuda:0" if use_gpu and torch.cuda.is_available() else "cpu")
 
+    # load in the dataset
+    training_data = MultimodalEmbeddingsDataset("train", config_dict, to_tensor=True)
+    val_data = MultimodalEmbeddingsDataset("val", config_dict, to_tensor=True)
 
     # setup the dataloader
-    training_data = 1
-    val_dataloader = 1
-
+    train_dataloader = DataLoader(training_data, batch_size=config_dict.batch_size, shuffle=True)
+    val_dataloader = DataLoader(val_data, batch_size=config_dict.batch_size, shuffle=True)
 
     # setup the model
-    n_modalities = get_config_value(config, "model", "n_modalities")
-    if n_modalities == 1:
+    if config_dict.n_modalities == 1:
         # initiate an unimodal model
-        first_encoder = get_config_value(config, "model", "encoder", "1")
-        model = 1
+        model = UnimodalDVlogModel((config_dict.sequence_length, config_dict.encoder1_dim),
+                                   d_model=config_dict.dim_model, n_heads=config_dict.uni_n_heads, use_std=config_dict.detectlayer_use_std)
 
-    elif n_modalities == 2:
+    elif config_dict.n_modalities == 2:
         # initiate a bimodal model
-        
-        model = 1
-    elif n_modalities == 3:
-        # initiate a trimodal model
-        ...
+        model = BimodalDVlogModel((config_dict.sequence_length, config_dict.encoder1_dim), (config_dict.sequence_length, config_dict.encoder2_dim),
+                                   d_model=config_dict.dim_model, uni_n_heads=config_dict.uni_n_heads, cross_n_heads=config_dict.multi_n_heads, use_std=config_dict.detectlayer_use_std)
 
     else:
-        # n_modalities is 
-        raise NotImplementedError(f"Model does not support {n_modalities} modalities")
-
+        # initiate a trimodal model
+        seq_length = config_dict.sequence_length
+        model = TrimodalDVlogModel((seq_length, config_dict.encoder1_dim), (seq_length, config_dict.encoder2_dim), (seq_length, config_dict.encoder3_dim),
+                                   d_model=config_dict.dim_model, uni_n_heads=config_dict.uni_n_heads, cross_n_heads=config_dict.multi_n_heads, use_std=config_dict.detectlayer_use_std)
 
     # train the actual model
+    train_model(model, train_dataloader, val_dataloader, config_dict, output_path)
 
 
+def train_model(model, train_dataloader: DataLoader, val_dataloader: DataLoader, config_dict: ConfigDict, output_path: Path):
+    """Run the training process using the model and dataloader.
+    """
+    # setup the saving directory
+    model_output_path = os.path.join(output_path, config_dict.model_name)
+    os.makedirs(model_output_path, exist_ok=True)
 
-def train_model(model, train_dataloader, val_dataloader, n_modalities):
-    
     # set the loss function and optimizer
     criterion = nn.CrossEntropyLoss()
-    optimizer = optim.Adam(model.parameters(), lr=LEARNING_RATE)
+    optimizer = optim.Adam(model.parameters(), lr=config_dict.learning_rate)
 
     # run the training
-    epoch_number = 0
     best_vloss = 1_000_000
-    # best_f1 = 0.0
 
-    for epoch in range(EPOCHS):  # loop over the dataset multiple times
-        print('EPOCH {}:'.format(epoch_number + 1))
+    for epoch in range(config_dict.epochs):  # loop over the dataset multiple times
+        print('EPOCH {}:'.format(epoch + 1))
 
         # make sure the gradient is on and do a pass over the data
         model.train(True)
@@ -96,7 +108,12 @@ def train_model(model, train_dataloader, val_dataloader, n_modalities):
         for i, data in enumerate(train_dataloader):
 
             # get the inputs
-            inputs, labels = data[:-1], data[-1]
+            if config_dict.n_modalities == 1:
+                # only one modality so unpack the set
+                inputs, labels = data
+            else:
+                # more modalities so keep the tuple set
+                inputs, labels = data[:-1], data[-1]
 
             # zero the parameter gradients
             optimizer.zero_grad()
@@ -112,156 +129,54 @@ def train_model(model, train_dataloader, val_dataloader, n_modalities):
             running_loss += loss.item()
         avg_loss = running_loss / (i + 1)
 
+        # Per-Epoch Activity
+        # Set the model to evaluation mode, disabling dropout and using population
+        # statistics for batch normalization.
+        running_vloss = 0.0
+        predictions = []
+        y_labels = []
+        model.eval()
 
+        # Disable gradient computation and reduce memory consumption.
+        with torch.no_grad():
+            for i, vdata in enumerate(val_dataloader):
+
+                # get the validation inputs
+                if config_dict.n_modalities == 1:
+                    # only one modality so unpack the set
+                    v_inputs, vlabels = vdata
+                else:
+                    # more modalities so keep the input tuple set
+                    v_inputs, vlabels = vdata[:-1], vdata[-1]
+
+                # get the predictions of the model
+                voutputs = model(v_inputs)
+
+                vloss = criterion(voutputs, vlabels)
+                running_vloss += vloss
+
+                # save the predictions and ground truths from each batch for processing
+                predictions.append(voutputs.numpy())
+                y_labels.append(vlabels.numpy())
+        
+        avg_vloss = running_vloss / (i + 1)
+        accuracy, _, _, fscore, _ = calculate_performance_measures(y_labels, predictions)
+        print('LOSS train {} validation {}'.format(avg_loss, avg_vloss))
+        print(f"Validation accuracy: {accuracy}; F1-score: {fscore}")
+
+        # Track best performance, and save the model's state (for Inference later on)
+        if avg_vloss < best_vloss:
+            # save the model itself
+            best_vloss = avg_vloss
+            model_path = os.path.join(model_output_path, f"model_{config_dict.model_name}.pth")
+            torch.save(model.state_dict(), model_path)
+
+    # save the config dictionary
+    with open(os.path.join(model_output_path, "model_params.json"), "w") as outfile: 
+        json.dump(config_dict.to_dict(), outfile)
+
+    print('Finished Training')
 
 
 if __name__ == "__main__":
     typer.run(train_cli)
-
-# HARDCODED PAPER VARIABLES
-# batch size: 32
-# epochs: 50
-# learning rate: 0.0002
-# sequence length (t): 596
-# SEED = 42
-
-# do the checks over the parameters
-assert modality in ["visual", "acoustic", "uni", "both"], f"Modality type not in choices: {modality}"
-
-# setup the paths
-annotations_file = Path(r"./dataset/dvlog_labels_v2.csv")
-data_dir = Path(r"./dataset/dvlog-dataset")
-# data_dir = Path(r"./dataset/pdem-dataset")
-data_dir = Path(r"./dataset/embeddings-dataset")
-
-# setup the device
-# device = torch.device("cuda:0" if USE_GPU and torch.cuda.is_available() else "cpu")
-
-# load in the dataset
-if modality == "uni":
-    training_data = UnimodalEmbeddingsDataset(annotations_file, data_dir, "train", "w2v_seq_avg", sequence_length=SEQUENCE_LENGTH, to_tensor=True)
-    val_data = UnimodalEmbeddingsDataset(annotations_file, data_dir, "val", "w2v_seq_avg", sequence_length=SEQUENCE_LENGTH, to_tensor=True)
-else:
-    training_data = BaseDVlogDataset(annotations_file, data_dir, "train", sequence_length=SEQUENCE_LENGTH, to_tensor=True)
-    val_data = BaseDVlogDataset(annotations_file, data_dir, "val", sequence_length=SEQUENCE_LENGTH, to_tensor=True)
-
-# setup the dataloader
-train_dataloader = DataLoader(training_data, batch_size=BATCH_SIZE, shuffle=True)
-val_dataloader = DataLoader(val_data, batch_size=BATCH_SIZE, shuffle=True)
-
-# setup the network
-if modality == "acoustic":
-    # acoustic unimodel
-    model = UnimodalDVlogModel(data_shape=(SEQUENCE_LENGTH, acoustic_feature_dim), d_model=DIM_MODEL, n_heads=N_HEADS_UNIMODAL, use_std=USE_STD)
-elif modality == "visual":
-    # visual unimodel
-    model = UnimodalDVlogModel(data_shape=(SEQUENCE_LENGTH, visual_feature_dim), d_model=DIM_MODEL, n_heads=N_HEADS_UNIMODAL, use_std=USE_STD)
-elif modality == "uni":
-    # unimodal model
-    model = UnimodalDVlogModel(data_shape=(SEQUENCE_LENGTH, uni_feature_dim), d_model=DIM_MODEL, n_heads=N_HEADS_UNIMODAL, use_std=USE_STD)
-else:
-    # bimodal model
-    model = BimodalDVlogModel(d_model=DIM_MODEL, uni_n_heads=N_HEADS_UNIMODAL, cross_n_heads=N_HEADS_CROSS, use_std=USE_STD)
-
-# if torch.cuda.is_available():
-#     model.cuda()
-
-# # set the loss function and optimizer
-criterion = nn.CrossEntropyLoss()
-optimizer = optim.Adam(model.parameters(), lr=LEARNING_RATE)
-
-# run the training
-epoch_number = 0
-best_vloss = 1_000_000
-# best_f1 = 0.0
-
-for epoch in range(EPOCHS):  # loop over the dataset multiple times
-    print('EPOCH {}:'.format(epoch_number + 1))
-
-    # make sure the gradient is on and do a pass over the data
-    model.train(True)
-    running_loss = 0.0
-    for i, data in enumerate(train_dataloader):
-
-        # get the inputs
-        if modality == "acoustic":
-            _, inputs, labels = data
-        elif modality == "visual":
-            inputs, _, labels = data
-        elif modality == "uni":
-            inputs, labels = data
-        else:
-            inputs_v, inputs_a, labels = data
-
-        # zero the parameter gradients
-        optimizer.zero_grad()
-
-        # forward + backward + optimize
-        if modality == "both":
-            outputs = model((inputs_a, inputs_v))
-        else:
-            outputs = model(inputs)
-
-        loss = criterion(outputs, labels)
-        loss.backward()
-        optimizer.step()
-
-        # save statistics
-        running_loss += loss.item()
-    avg_loss = running_loss / (i + 1)
-    
-    # Per-Epoch Activity
-    # Set the model to evaluation mode, disabling dropout and using population
-    # statistics for batch normalization.
-    running_vloss = 0.0
-    predictions = []
-    y_labels = []
-    model.eval()
-
-    # Disable gradient computation and reduce memory consumption.
-    with torch.no_grad():
-        for i, vdata in enumerate(val_dataloader):
-
-            # choose the appropriate inputs
-            if modality == "acoustic":
-                _, v_inputs, vlabels = vdata
-            elif modality == "visual":
-                v_inputs, _, vlabels = vdata
-            elif modality == "uni":
-                v_inputs, vlabels = vdata
-            else:
-                v_inputs_v, v_inputs_a, vlabels = vdata
-
-
-            if modality == "both":
-                voutputs = model((v_inputs_a, v_inputs_v))
-            else:
-                voutputs = model(v_inputs)
-
-            vloss = criterion(voutputs, vlabels)
-            running_vloss += vloss
-
-            # save the predictions and ground truths from each batch for processing
-            predictions.append(voutputs.numpy())
-            y_labels.append(vlabels.numpy())
-    
-    avg_vloss = running_vloss / (i + 1)
-    accuracy, _, _, fscore = calculate_performance_measures(y_labels, predictions)
-    print('LOSS train {} validation {}'.format(avg_loss, avg_vloss))
-    print(f"Validation accuracy: {accuracy}; F1-score: {fscore}")
-
-    # Track best performance, and save the model's state
-    if avg_vloss < best_vloss:
-        best_vloss = avg_vloss
-        model_path = 'trained_models/model_{}'.format(MODEL_NAME)
-        torch.save(model.state_dict(), model_path)
-    
-    # if fscore > best_f1:
-    #     best_f1 = fscore
-    #     model_path = 'trained_models/model_{}'.format(MODEL_NAME)
-    #     torch.save(model.state_dict(), model_path)
-    
-    epoch_number += 1
-
-
-print('Finished Training')
