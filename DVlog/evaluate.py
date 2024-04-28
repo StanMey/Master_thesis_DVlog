@@ -92,7 +92,7 @@ def evaluate(
     test_dataloader = DataLoader(test_data, batch_size=config_dict.batch_size, shuffle=True)
 
     # evaluate the model
-    evaluate_model(saved_model, test_dataloader, config_dict, unpriv_feature, verbose)
+    return evaluate_model(saved_model, test_dataloader, config_dict, unpriv_feature, verbose)
 
 
 def evaluate_model(model, test_dataloader: DataLoader, config_dict: ConfigDict, unpriv_feature: str, verbose: bool) -> Union[None, dict]:
@@ -144,13 +144,14 @@ def evaluate_model(model, test_dataloader: DataLoader, config_dict: ConfigDict, 
     else:
         # return all measures as a dict
         return {
+            "model_name": config_dict.model_name,
             "weighted": {
                 "accuracy": accuracy,
                 "precision": w_precision,
                 "recall": w_recall,
                 "fscore": w_fscore,
-                f"{gender_metric[0][0]}_fscore": gender_metric[0][3],
-                f"{gender_metric[1][0]}_fscore": gender_metric[1][3],
+                f"{gender_metrics[0][0]}_fscore": gender_metrics[0][3],
+                f"{gender_metrics[1][0]}_fscore": gender_metrics[1][3],
             },
             "macro": {
                 "fscore": m_fscore
