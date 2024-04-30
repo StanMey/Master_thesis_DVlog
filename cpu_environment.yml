@@ -12,6 +12,8 @@ dependencies:
   - pytorch=2.2.1
   - torchvision=0.17.1
   - torchaudio=2.2.1
+  - cpuonly=2.0
   - scikit-learn=1.3.0
   - confection=0.1.4
   - typer=0.9.0
+  - fairlearn=0.10.0

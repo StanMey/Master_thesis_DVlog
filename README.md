@@ -28,7 +28,11 @@ learning_rate = 0.0002
 seed = 42
 ```
 
-### 🏋️‍♂️ Training the models
+## 🏋️‍♂️ Training the models
+
+### Straightforward models
+
+### ⏱️ Synchronised model
 
 
 ### 📊 Evaluating the models
