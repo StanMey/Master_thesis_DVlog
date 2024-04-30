@@ -33,6 +33,15 @@ def validate_config(config: dict):
         # check whether the encoder has a feature name and dimension
         for key in ["feature_name", "feature_dim", "data_dir"]:
             assert keys_exists(config, "model", "encoder", str(x_encoder), key), f"Key {key} for encoder {x_encoder} not defined properly"
+    
+    # if we do do a sync function over the first encoder check if we have a sync file in the config
+    if keys_exists(config, "model", "encoder", "1", "apply_sync"):
+        assert keys_exists(config, "paths", "sync_file"), f"no 'sync_file' section in the config file"
+
+        # check whether the path to the sync file exists
+        sync_file = Path(get_config_value(config, "paths", "sync_file"))
+        os.path.exists(sync_file), f"Annotations file could not be found -> {sync_file}"
+
 
 
 def keys_exists(config: dict, *keys) -> bool:
@@ -89,6 +98,7 @@ class ConfigDict:
         self.model_name = get_config_value(self.config, "general", "model_name")
         self.annotations_file = Path(get_config_value(self.config, "paths", "annotations_file"))
         self.general_data_dir = Path(get_config_value(self.config, "paths", "data_dir"))
+        self.sync_file = None if not keys_exists(self.config, "paths", "sync_file") else Path(get_config_value(self.config, "paths", "sync_file"))
 
         # retrieve the model specific variables
         self.n_modalities = int(get_config_value(self.config, "model", "n_modalities"))
@@ -108,6 +118,7 @@ class ConfigDict:
         self.encoder1_feature_name = self.encoder1.get("feature_name")
         self.encoder1_dim = self.encoder1.get("feature_dim")
         self.encoder1_data_dir = Path(self.encoder1.get("data_dir"))
+        self.encoder1_use_sync = False if not keys_exists(self.config, "model", "encoder", "1", "apply_sync") else get_config_value(self.config, "model", "encoder", "1", "apply_sync")
 
         if self.n_modalities >= 2:
             # specifically check for larger than 2 (we also want the second encoder when we have 3 modalities)

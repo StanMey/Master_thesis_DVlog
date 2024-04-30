@@ -20,7 +20,7 @@ from pathlib import Path
 from models.model import UnimodalDVlogModel, BimodalDVlogModel
 from models.trimodal_model import TrimodalDVlogModel
 
-from utils.dataloaders import MultimodalEmbeddingsDataset
+from utils.dataloaders import MultimodalEmbeddingsDataset, SyncedMultimodalEmbeddingsDataset
 from utils.metrics import calculate_performance_measures
 from utils.util import ConfigDict
 from utils.util import validate_config, process_config
@@ -57,8 +57,15 @@ def train(
     # device = torch.device("cuda:0" if use_gpu and torch.cuda.is_available() else "cpu")
 
     # load in the dataset
-    training_data = MultimodalEmbeddingsDataset("train", config_dict, to_tensor=True)
-    val_data = MultimodalEmbeddingsDataset("val", config_dict, to_tensor=True)
+    if config_dict.encoder1_use_sync:
+        # use the synced multimodal dataloader
+        training_data = SyncedMultimodalEmbeddingsDataset("train", config_dict, to_tensor=True)
+        val_data = SyncedMultimodalEmbeddingsDataset("val", config_dict, to_tensor=True)
+
+    else:
+        # use the rregular multimodal dataloader
+        training_data = MultimodalEmbeddingsDataset("train", config_dict, to_tensor=True)
+        val_data = MultimodalEmbeddingsDataset("val", config_dict, to_tensor=True)
 
     # setup the dataloader
     train_dataloader = DataLoader(training_data, batch_size=config_dict.batch_size, shuffle=True)

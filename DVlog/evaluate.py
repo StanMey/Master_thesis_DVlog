@@ -16,7 +16,7 @@ from pathlib import Path
 from models.model import UnimodalDVlogModel, BimodalDVlogModel
 from models.trimodal_model import TrimodalDVlogModel
 
-from utils.dataloaders import MultimodalEmbeddingsDataset
+from utils.dataloaders import MultimodalEmbeddingsDataset, SyncedMultimodalEmbeddingsDataset
 from utils.metrics import calculate_performance_measures, calculate_gender_performance_measures, calculate_fairness_measures
 from utils.util import ConfigDict
 from utils.util import validate_config, process_config
@@ -87,7 +87,12 @@ def evaluate(
     #TODO setup the device
 
     # load in the dataset
-    test_data = MultimodalEmbeddingsDataset("test", config_dict, to_tensor=True, with_protected=True)
+    if config_dict.encoder1_use_sync:
+        # use the synced data loader
+        test_data = SyncedMultimodalEmbeddingsDataset("test", config_dict, to_tensor=True, with_protected=True)
+    else:
+        test_data = MultimodalEmbeddingsDataset("test", config_dict, to_tensor=True, with_protected=True)
+
     # setup the dataloader
     test_dataloader = DataLoader(test_data, batch_size=config_dict.batch_size, shuffle=True)
 
