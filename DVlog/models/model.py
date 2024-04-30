@@ -170,11 +170,11 @@ class UnimodalDVlogModel(nn.Module):
 
 class CrossAttentionModule(nn.Module):
 
-    def __init__(self, d_model: int = 256, n_heads: int = 8):
+    def __init__(self, d_model: int = 256, n_heads: int = 16):
         """
         :param d_model: The dimension of the encoder representation (d_u in the paper), defaults to 256
         :type d_model: int, optional
-        :param n_heads: The number of attention heads in the encoder, defaults to 8
+        :param n_heads: The number of attention heads in the cross-attention, defaults to 16
         :type n_heads: int, optional
         """
         super().__init__()

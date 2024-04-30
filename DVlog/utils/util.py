@@ -42,6 +42,12 @@ def validate_config(config: dict):
         sync_file = Path(get_config_value(config, "paths", "sync_file"))
         os.path.exists(sync_file), f"Annotations file could not be found -> {sync_file}"
 
+    # if we do have three modalities, check whether the type of cross-embedding is defined
+    if n_modalities == 3:
+        assert keys_exists(config, "model", "multimodal", "tri_type"), f"no 'tri_type' defined in the config file"
+        chosen_option, available_trioptions = get_config_value(config, "model", "multimodal", "tri_type"), ["crisscross", "layered"]
+        assert chosen_option in available_trioptions, f"tri_type {chosen_option} invalid; please choose one of {available_trioptions}"
+
 
 
 def keys_exists(config: dict, *keys) -> bool:
@@ -106,6 +112,7 @@ class ConfigDict:
         self.dim_model = 256 if not keys_exists(self.config, "model", "dim_model") else get_config_value(self.config, "model", "dim_model")
         self.uni_n_heads = 8 if not keys_exists(self.config, "model", "encoder", "n_heads") else get_config_value(self.config, "model", "encoder", "n_heads")
         self.multi_n_heads = 16 if not keys_exists(self.config, "model", "multimodal", "n_heads") else get_config_value(self.config, "model", "multimodal", "n_heads")
+        self.multi_tri_type = None if not keys_exists(self.config, "model", "multimodal", "tri_type") else get_config_value(self.config, "model", "multimodal", "tri_type")
         self.detectlayer_use_std = False if not keys_exists(self.config, "model", "detection_layer", "use_std") else get_config_value(self.config, "model", "detection_layer", "use_std")
 
         # set up the training variables (here we do have to check each feature since we otherwise can use default values)
