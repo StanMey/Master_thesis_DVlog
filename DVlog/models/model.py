@@ -186,7 +186,8 @@ class CrossAttentionModule(nn.Module):
         self.right_attention_block = nn.MultiheadAttention(embed_dim=self.d_model, num_heads=self.n_heads, batch_first=True)
 
         # layer norm
-        self.layer_norm = nn.LayerNorm(self.d_model)
+        self.layer_norm1 = nn.LayerNorm(self.d_model)
+        self.layer_norm2 = nn.LayerNorm(self.d_model)
 
         # the last transformer before the multimodal representation
         self.encoder_layer = nn.TransformerEncoderLayer(d_model=self.d_model*2, nhead=self.n_heads, batch_first=True)
@@ -201,10 +202,10 @@ class CrossAttentionModule(nn.Module):
         
         # add residual and layer normalization
         U_a = left_attent + U_a
-        U_a = self.layer_norm(U_a)
+        U_a = self.layer_norm1(U_a)
 
         U_v = right_attent + U_v
-        U_v = self.layer_norm(U_v)
+        U_v = self.layer_norm2(U_v)
 
         # fuse cross-modal information
         U_av = torch.cat((U_a, U_v), 2)

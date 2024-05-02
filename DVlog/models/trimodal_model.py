@@ -23,8 +23,10 @@ class CrissCrossAttentionModule(nn.Module):
         self.middle_attention_block = nn.MultiheadAttention(embed_dim=self.d_model, num_heads=self.n_heads, batch_first=True)
         self.right_attention_block = nn.MultiheadAttention(embed_dim=self.d_model, num_heads=self.n_heads, batch_first=True)
 
-        # layer norm
-        self.layer_norm = nn.LayerNorm(self.d_model)
+        # layer normalisation
+        self.layer_norm1 = nn.LayerNorm(self.d_model)
+        self.layer_norm2 = nn.LayerNorm(self.d_model)
+        self.layer_norm3 = nn.LayerNorm(self.d_model)
 
         # the last transformer before the multimodal representation
         self.encoder_layer = nn.TransformerEncoderLayer(d_model=self.d_model*3, nhead=self.n_heads, batch_first=True)
@@ -40,13 +42,13 @@ class CrissCrossAttentionModule(nn.Module):
         
         # add residual and layer normalization
         U_l = left_attent + U_l
-        U_l = self.layer_norm(U_l)
+        U_l = self.layer_norm1(U_l)
 
         U_m = mid_attent + U_m
-        U_m = self.layer_norm(U_m)
+        U_m = self.layer_norm2(U_m)
 
         U_r = right_attent + U_r
-        U_r = self.layer_norm(U_r)
+        U_r = self.layer_norm3(U_r)
 
         # fuse cross-modal information
         U_av = torch.cat((U_l, U_m, U_r), 2)
