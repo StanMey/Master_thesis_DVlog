@@ -1,7 +1,6 @@
 import os
 import json
 import torch
-torch.manual_seed(42)
 
 import torch.nn as nn
 import torch.optim as optim
@@ -23,23 +22,25 @@ from models.trimodal_model import TrimodalDVlogModel
 from utils.dataloaders import MultimodalEmbeddingsDataset, SyncedMultimodalEmbeddingsDataset
 from utils.metrics import calculate_performance_measures
 from utils.util import ConfigDict
-from utils.util import validate_config, process_config
+from utils.util import validate_config, process_config, set_seed
 
 
 def train_cli(
     config_path: Path = typer.Argument(..., help="Path to config file", exists=True, allow_dash=True),
     output_path: Annotated[Path, typer.Option(help="Path to saved model folder", exists=True, allow_dash=True)] = Path(r"./trained_models"),
-    use_gpu: Annotated[int, typer.Option("--gpu-id", "-g", help="GPU ID or -1 for CPU")] = -1
+    use_gpu: Annotated[int, typer.Option("--gpu-id", "-g", help="GPU ID or -1 for CPU")] = -1,
+    seed: Annotated[int, typer.Option("--seed", "-s", help="The seed used when randomness is introduced")] = 42
 ):
     """The CLI function handling the interaction part when the user runs the train.py script.
     """
-    train(config_path=config_path, output_path=output_path, use_gpu=use_gpu)
+    train(config_path=config_path, output_path=output_path, use_gpu=use_gpu, seed=seed)
 
 
 def train(
     config_path: Union[str, Path],
     output_path: Union[str, Path],
-    use_gpu: int
+    use_gpu: int,
+    seed: int
 ):
     """Function to extract and process the configuration file and setup the models and dataloaders.
     """
@@ -56,6 +57,9 @@ def train(
     #TODO setup the device
     # device = torch.device("cuda:0" if use_gpu and torch.cuda.is_available() else "cpu")
 
+    # set the seed
+    set_seed(seed)
+
     # load in the dataset
     if config_dict.encoder1_use_sync:
         # use the synced multimodal dataloader
@@ -63,7 +67,7 @@ def train(
         val_data = SyncedMultimodalEmbeddingsDataset("val", config_dict, to_tensor=True)
 
     else:
-        # use the rregular multimodal dataloader
+        # use the regular multimodal dataloader
         training_data = MultimodalEmbeddingsDataset("train", config_dict, to_tensor=True)
         val_data = MultimodalEmbeddingsDataset("val", config_dict, to_tensor=True)
 

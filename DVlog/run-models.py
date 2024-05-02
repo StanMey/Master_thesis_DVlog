@@ -1,8 +1,5 @@
 import os
 import pandas as pd
-import torch
-torch.manual_seed(42)
-
 import typer
 from typing_extensions import Annotated
 
@@ -24,6 +21,7 @@ def run_cli(
     use_gpu: Annotated[int, typer.Option("--gpu-id", "-g", help="GPU ID or -1 for CPU")] = -1,
     evaluate: Annotated[bool, typer.Option("--evaluate/--train", help="whether to evaluate the models or to train the not yet trained models")] = True,
     unpriv_feature: Annotated[str, typer.Option("--unpriv-feature", "-u", help="The unprivileged fairness feature (m or f) (needed for the evaluation step)")] = "m",
+    seed: Annotated[int, typer.Option("--seed", "-s", help="The seed used when randomness is introduced")] = 42
 ):
     """The CLI function handling the interaction part.
     """
@@ -34,18 +32,19 @@ def run_cli(
     if evaluate:
         # evaluate the models
         print("Begin evaluating")
-        evaluate_models(config_dir=config_dir, output_dir=output_dir, use_gpu=use_gpu, unpriv_feature=unpriv_feature)
+        evaluate_models(config_dir=config_dir, output_dir=output_dir, use_gpu=use_gpu, unpriv_feature=unpriv_feature, seed=seed)
     else:
         # train the not yet trained models
         print("Begin training")
-        train_models(config_dir=config_dir, output_dir=output_dir, use_gpu=use_gpu)
+        train_models(config_dir=config_dir, output_dir=output_dir, use_gpu=use_gpu, seed=seed)
 
 
 def evaluate_models(
     config_dir: Union[str, Path],
     output_dir: Union[str, Path],
     use_gpu: int,
-    unpriv_feature: str
+    unpriv_feature: str,
+    seed: int
 ):
     # setup the metric list
     metrics = []
@@ -70,7 +69,7 @@ def evaluate_models(
             # check if the model exists
             if model_name in trained_models_names:
                 # model exists, so run the evaluation and save the metrics
-                metrics.append(evaluate(config_path, output_dir, use_gpu, unpriv_feature=unpriv_feature, verbose=False))
+                metrics.append(evaluate(config_path, output_dir, use_gpu, unpriv_feature=unpriv_feature, verbose=False, seed=seed))
 
     # extract the metrics
     end_metrics = []
@@ -90,7 +89,8 @@ def evaluate_models(
 def train_models(
     config_dir: Union[str, Path],
     output_dir: Union[str, Path],
-    use_gpu: int
+    use_gpu: int,
+    seed: int
 ):
     """Function to extract and process the configuration file and setup the models and dataloaders.
     """
@@ -118,7 +118,7 @@ def train_models(
             else:
                 # we still have to train the model
                 print(f"Training model {model_name}")
-                train(config_path=config_path, output_path=output_dir, use_gpu=use_gpu)
+                train(config_path=config_path, output_path=output_dir, use_gpu=use_gpu, seed=seed)
 
 
 if __name__ == "__main__":

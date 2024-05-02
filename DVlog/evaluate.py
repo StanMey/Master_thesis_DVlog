@@ -1,6 +1,5 @@
 import os
 import torch
-torch.manual_seed(42)
 
 import typer
 from typing_extensions import Annotated
@@ -19,7 +18,7 @@ from models.trimodal_model import TrimodalDVlogModel
 from utils.dataloaders import MultimodalEmbeddingsDataset, SyncedMultimodalEmbeddingsDataset
 from utils.metrics import calculate_performance_measures, calculate_gender_performance_measures, calculate_fairness_measures
 from utils.util import ConfigDict
-from utils.util import validate_config, process_config
+from utils.util import validate_config, process_config, set_seed
 
 
 def evaluate_cli(
@@ -27,11 +26,12 @@ def evaluate_cli(
     model_path: Annotated[Path, typer.Option(help="Path to saved models folder", exists=True, allow_dash=True)] = Path(r"./trained_models"),
     use_gpu: Annotated[int, typer.Option("--gpu-id", "-g", help="GPU ID or -1 for CPU")] = -1,
     unpriv_feature: Annotated[str, typer.Option("--unpriv-feature", "-u", help="The unprivileged fairness feature (m or f)")] = "m",
-    verbose: Annotated[bool, typer.Option("--verbose", "-v", help="When 'True' prints the measures to console, otherwise returns them as a dict")] = True
+    verbose: Annotated[bool, typer.Option("--verbose", "-v", help="When 'True' prints the measures to console, otherwise returns them as a dict")] = True,
+    seed: Annotated[int, typer.Option("--seed", "-s", help="The seed used when randomness is introduced")] = 42
 ):
     """The CLI function handling the interaction part when the user runs the evaluate.py script.
     """
-    evaluate(config_path=config_path, model_path=model_path, use_gpu=use_gpu, unpriv_feature=unpriv_feature, verbose=verbose)
+    evaluate(config_path=config_path, model_path=model_path, use_gpu=use_gpu, unpriv_feature=unpriv_feature, verbose=verbose, seed=seed)
 
 
 def evaluate(
@@ -39,7 +39,8 @@ def evaluate(
     model_path: Union[str, Path],
     use_gpu: int,
     unpriv_feature: str,
-    verbose: bool
+    verbose: bool,
+    seed: int
 ):
     """Function to extract and process the configuration file and setup the models and dataloaders to evaluate the model.
     """
@@ -62,6 +63,9 @@ def evaluate(
     saved_model_path = Path(os.path.join(model_dir_path, f"model_{config_dict.model_name}.pth"))
     assert model_dir_path.is_dir(), f"Saved model directory not found: {model_dir_path}"
     assert saved_model_path.is_file(), f"Saved model not found: {saved_model_path}"
+
+    # set the seed
+    set_seed(seed)
 
     # setup the initial model
     if config_dict.n_modalities == 1:

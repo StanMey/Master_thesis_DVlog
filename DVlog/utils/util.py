@@ -1,4 +1,7 @@
 import os
+import random
+import numpy as np
+import torch
 
 from pathlib import Path
 
@@ -166,3 +169,16 @@ def process_config(config: dict) -> ConfigDict:
     """Small function which builds the config dict (implemented for sanity reasons)
     """
     return ConfigDict(config)
+
+
+def set_seed(seed: int = 42) -> None:
+    """Sets the seed for all the involved libraries in a PyTorch pipeline.
+    https://wandb.ai/sauravmaheshkar/RSNA-MICCAI/reports/How-to-Set-Random-Seeds-in-PyTorch-and-Tensorflow--VmlldzoxMDA2MDQy?galleryTag=pytorch
+
+    :param seed: The value of the seed, defaults to 42
+    :type seed: int, optional
+    """
+    np.random.seed(seed)
+    random.seed(seed)
+    torch.manual_seed(seed)
+    torch.cuda.manual_seed(seed)
