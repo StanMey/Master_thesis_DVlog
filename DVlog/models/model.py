@@ -220,12 +220,14 @@ class BimodalDVlogModel(nn.Module):
     
     """
 
-    def __init__(self, audio_shape: tuple[int, int] = (596, 25), video_shape: tuple[int, int] = (596, 136), d_model: int = 256, uni_n_heads: int = 8, cross_n_heads: int = 16, use_std: bool = False):
+    def __init__(self, first_shape: tuple[int, int], second_shape: tuple[int, int], cross_type: str, d_model: int = 256, uni_n_heads: int = 8, cross_n_heads: int = 16, use_std: bool = False):
         """
-        :param audio_shape: The input shape of the audio data, defaults to (596, 25)
-        :type audio_shape: tuple[int, int], optional
-        :param video_shape: The input shape of the audio data, defaults to (596, 136)
-        :type video_shape: tuple[int, int], optional
+        :param first_shape: The input shape of the first input feature
+        :type first_shape: tuple[int, int]
+        :param second_shape: The input shape of the second input feature
+        :type second_shape: tuple[int, int]
+        :param cross_type: The type of bimodal operation to use (can either be 'cross' or 'concat')
+        :type cross_type: str
         :param d_model: The dimension of the encoder representation (d_u in the paper), defaults to 256
         :type d_model: int, optional
         :param uni_n_heads: The number of attention heads in the unimodal encoders, defaults to 8
@@ -239,30 +241,39 @@ class BimodalDVlogModel(nn.Module):
         """
         super().__init__()
         # 
-        self.audio_shape = audio_shape
-        self.video_shape = video_shape
+        self.first_shape = first_shape
+        self.second_shape = second_shape
+
+        self.cross_type = cross_type
         self.d_model = d_model
         self.uni_n_heads = uni_n_heads
         self.cross_n_heads = cross_n_heads
         self.use_std = use_std
 
         # setup both encoders
-        self.audio_encoder = UnimodalTransformerEncoder(self.audio_shape, self.d_model, n_heads=self.uni_n_heads)
-        self.video_encoder = UnimodalTransformerEncoder(self.video_shape, self.d_model, n_heads=self.uni_n_heads)
+        self.first_encoder = UnimodalTransformerEncoder(self.first_shape, self.d_model, n_heads=self.uni_n_heads)
+        self.second_encoder = UnimodalTransformerEncoder(self.second_shape, self.d_model, n_heads=self.uni_n_heads)
 
         # setup the cross attention and prediction layer
-        self.crossattention = CrossAttentionModule(self.d_model, n_heads=self.cross_n_heads)
+        if self.cross_type == "cross":
+            self.crossattention = CrossAttentionModule(self.d_model, n_heads=self.cross_n_heads)
         self.detection_layer = DetectionLayer(self.d_model*2, use_std=use_std)
 
     def forward(self, features):
         # extract both features
-        x_audio, x_video = features
+        x_1, x_2 = features
 
         # run the features through the encoders
-        x_audio = self.audio_encoder(x_audio)
-        x_video = self.video_encoder(x_video)
+        x_1 = self.first_encoder(x_1)
+        x_2 = self.second_encoder(x_2)
 
         # apply the cross attention and the detection layer
-        x = self.crossattention(x_audio, x_video)
+        if self.cross_type == "cross":
+            # apply cross attention
+            x = self.crossattention(x_1, x_2)
+        else:
+            # just concatenate the outputs and feed it to the detection_layer
+            x = torch.cat((x_1, x_2), 2)
+
         x = self.detection_layer(x)
         return x
