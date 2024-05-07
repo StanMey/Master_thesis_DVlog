@@ -54,7 +54,7 @@ def validate_config(config: dict):
     # if we do have three modalities, check whether the type of cross-embedding is defined
     if n_modalities == 3:
         assert keys_exists(config, "model", "multimodal", "tri_type"), f"no 'tri_type' defined in the config file"
-        chosen_option, available_trioptions = get_config_value(config, "model", "multimodal", "tri_type"), ["crisscross", "layered"]
+        chosen_option, available_trioptions = get_config_value(config, "model", "multimodal", "tri_type"), ["crisscross", "layered", "concat"]
         assert chosen_option in available_trioptions, f"tri_type {chosen_option} invalid; please choose one of {available_trioptions}"
 
 

@@ -140,9 +140,12 @@ class TrimodalDVlogModel(nn.Module):
             # apply the layered cross attention module
             self.tricrossattention = LayeredCrossAttentionModule(self.d_model, n_heads=self.cross_n_heads)
             self.detection_layer = DetectionLayer(self.d_model*2, use_std=use_std)
-        else:
+        elif self.cross_type == "crisscross":
             # use the criss cross attention module
             self.tricrossattention = CrissCrossAttentionModule(self.d_model, n_heads=self.cross_n_heads)
+            self.detection_layer = DetectionLayer(self.d_model*3, use_std=use_std)
+        else:
+            # just concatenate the outputs of the encoders
             self.detection_layer = DetectionLayer(self.d_model*3, use_std=use_std)
 
     def forward(self, features):
@@ -155,6 +158,9 @@ class TrimodalDVlogModel(nn.Module):
         x_3 = self.third_encoder(x_3)
 
         # apply the cross attention and the detection layer
-        x = self.tricrossattention(x_1, x_2, x_3)
+        if self.cross_type == "concat":
+            x = torch.cat((x_1, x_2, x_3), 2)
+        else:
+            x = self.tricrossattention(x_1, x_2, x_3)
         x = self.detection_layer(x)
         return x
