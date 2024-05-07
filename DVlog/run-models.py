@@ -78,11 +78,12 @@ def evaluate_models(
         fairness = metric.get("fairness")
         end_metrics.append(
             (metric.get("model_name"), weighted.get("precision"), weighted.get("recall"), weighted.get("fscore"), metric.get("macro").get("fscore"),
-             weighted.get("m_fscore"), weighted.get("f_fscore"), fairness.get("eq_acc"), fairness.get("eq_odds"), fairness.get("eq_oppor"))
+             weighted.get("m_fscore"), weighted.get("f_fscore"), fairness.get("eq_acc"), fairness.get("eq_oppor"), fairness.get("fairl_eq_odds"),
+             fairness.get("unpriv").get("TPR"), fairness.get("unpriv").get("FPR"), fairness.get("priv").get("TPR"), fairness.get("priv").get("FPR"))
         )
 
     # build the pandas dataframe, so we can store the results
-    df = pd.DataFrame(end_metrics, columns =['Name', 'precision', 'recall', "f1 (weighted)", "f1 (macro)", "f1_m", "f1_f", "Eq accuracy", "Eq odds", "eq opportunity"])
+    df = pd.DataFrame(end_metrics, columns =['Name', 'precision', 'recall', "f1 (weighted)", "f1 (macro)", "f1_m", "f1_f", "Eq accuracy", "eq opportunity", "fairl_eq_odds", "unpriv_TPR", "unpriv_FPR", "priv_TPR", "priv_FPR"])
     df.to_csv(os.path.join(output_dir, "metrics.csv"), sep=";")
 
 

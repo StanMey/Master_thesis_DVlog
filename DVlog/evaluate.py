@@ -136,14 +136,14 @@ def evaluate_model(model, test_dataloader: DataLoader, config_dict: ConfigDict, 
 
     # calculate the performance and fairness measures
     accuracy, w_precision, w_recall, w_fscore, m_fscore = calculate_performance_measures(y_labels, predictions)
-    eq_odds, eq_oppor, eq_acc = calculate_fairness_measures(y_labels, predictions, protected, unprivileged=unpriv_feature)
+    eq_oppor, eq_acc, fairl_eq_odds, unpriv_stats, priv_stats = calculate_fairness_measures(y_labels, predictions, protected, unprivileged=unpriv_feature)
     gender_metrics = calculate_gender_performance_measures(y_labels, predictions, protected)
 
     if verbose:
         # print all the calculated measures
         print(f"(weighted) -->\nAccuracy: {accuracy}\nPrecision: {w_precision}\nRecall: {w_recall}\nF1-score: {w_fscore}")
         print(f"(macro) -->\nF1-score: {m_fscore}\n----------")
-        print(f"Equal odds: {eq_odds}\nEqual opportunity: {eq_oppor}\nEqual accuracy: {eq_oppor}\n----------")
+        print(f"Equal odds (fairlearn): {fairl_eq_odds}\nEqual opportunity: {eq_oppor}\nEqual accuracy: {eq_oppor}\n----------")
 
         # print the gender-based metrics
         print("Gender-based metrics:\n----------")
@@ -166,9 +166,17 @@ def evaluate_model(model, test_dataloader: DataLoader, config_dict: ConfigDict, 
                 "fscore": m_fscore
             },
             "fairness": {
-                "eq_odds": eq_odds,
+                "fairl_eq_odds": fairl_eq_odds,
                 "eq_oppor": eq_oppor,
                 "eq_acc": eq_acc,
+                "unpriv": {
+                    "TPR": unpriv_stats[0],
+                    "FPR": unpriv_stats[1]
+                },
+                "priv": {
+                    "TPR": priv_stats[0],
+                    "FPR": priv_stats[1]
+                }
             }
         }
 

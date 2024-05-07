@@ -1,6 +1,7 @@
 import numpy as np
 import pandas as pd
 
+from fairlearn.metrics import equalized_odds_ratio
 from itertools import chain
 from typing import Tuple
 from sklearn.metrics import (
@@ -9,15 +10,15 @@ from sklearn.metrics import (
 
 
 ## Performance measures
-def calculate_performance_measures(y_true: list[np.ndarray], y_pred: list[np.ndarray]) -> Tuple[float, float, float, float]:
-    """_summary_
+def calculate_performance_measures(y_true: list[np.ndarray], y_pred: list[np.ndarray]) -> Tuple[float, float, float, float, float]:
+    """Function to calculate all the performance measures.
 
-    :param y_true: _description_
+    :param y_true: A 2d list with the model's predictions
     :type y_true: list[np.ndarray]
-    :param y_pred: _description_
+    :param y_pred: A 2d list with the ground truths
     :type y_pred: list[np.ndarray]
-    :return: _description_
-    :rtype: Tuple[float, float, float, float]
+    :return: Returns the calculated performance measures
+    :rtype: Tuple[float, float, float, float, float]
     """
 
     # flatten the predictions and ground truths
@@ -37,7 +38,15 @@ def calculate_performance_measures(y_true: list[np.ndarray], y_pred: list[np.nda
 
 ### Gender-based performance measures
 def calculate_gender_performance_measures(y_true: list[np.ndarray], y_pred: list[np.ndarray], protected: list[str]) -> list[Tuple[str, float, float, float]]:
+    """_summary_
 
+    :param y_true: A 2d list with the model's predictions
+    :type y_true: list[np.ndarray]
+    :param y_pred: A 2d list with the ground truths
+    :type y_pred: list[np.ndarray]
+    :return: _description_
+    :rtype: Tuple[float, float, float, float]
+    """
     # first flatten the predictions and ground truths
     y_pred = np.argmax(np.concatenate(y_pred), axis=1)
     y_true = np.argmax(np.concatenate(y_true), axis=1)
@@ -58,19 +67,19 @@ def calculate_gender_performance_measures(y_true: list[np.ndarray], y_pred: list
 
 
 ## The fairness measures
-def calculate_fairness_measures(y_true: list[np.ndarray], y_pred: list[np.ndarray], protected: list[str], unprivileged: str) -> Tuple[float, float, float]:
-    """_summary_
+def calculate_fairness_measures(y_true: list[np.ndarray], y_pred: list[np.ndarray], protected: list[str], unprivileged: str):
+    """Calculates the actual fairness measures.
 
-    :param y_true: _description_
+    :param y_true: A 2d list with the model's predictions
     :type y_true: list[np.ndarray]
-    :param y_pred: _description_
+    :param y_pred: A 2d list with the ground truths
     :type y_pred: list[np.ndarray]
-    :param protected: _description_
+    :param protected: A 2d list with the sensitive features
     :type protected: list[str]
-    :param unprivileged: _description_
+    :param unprivileged: The value of the unprivileged group
     :type unprivileged: str
-    :return: _description_
-    :rtype: Tuple[float, float, float]
+    :return: Returns the calculated fairness measures
+    :rtype: Tuple[float, float, float, Tuple[float, float], Tuple[float, float]]
     """
     
     # flatten the predictions and ground truths
@@ -92,19 +101,18 @@ def calculate_fairness_measures(y_true: list[np.ndarray], y_pred: list[np.ndarra
 
     # for the equalized odds we use the approach by fairlearn (https://fairlearn.org/main/user_guide/assessment/common_fairness_metrics.html#equalized-odds)
     # "The smaller of two metrics: `true_positive_rate_ratio` and `false_positive_rate_ratio`."
-    # print((unpriv_tpr / priv_tpr), (unpriv_fpr / priv_fpr))
-    eq_odds = min((unpriv_tpr / priv_tpr), (unpriv_fpr / priv_fpr))
-    # print(eq_odds)
+    fairl_eq_odds = equalized_odds_ratio(y_true, y_pred, sensitive_features=protected)
+    # eq_odds = min((unpriv_tpr / priv_tpr), (unpriv_fpr / priv_fpr))
 
-    return eq_odds, eq_oppor, eq_acc
+    return eq_oppor, eq_acc, fairl_eq_odds, (unpriv_tpr, unpriv_fpr), (priv_tpr, priv_fpr)
 
 
 def fairness_metrics(df: pd.DataFrame) -> Tuple[float, float, float]:
-    """_summary_
+    """Calculates the prediction rates.
 
-    :param df: _description_
+    :param df: dataframe holding the predictions and ground truths
     :type df: pd.DataFrame
-    :return: _description_
+    :return: Returns the accuracy, TPR and FPR
     :rtype: Tuple[float, float, float]
     """
 
