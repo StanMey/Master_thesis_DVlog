@@ -17,7 +17,7 @@ from utils.util import validate_config, process_config
 
 def run_cli(
     config_dir: Path = typer.Argument(..., help="Path to directory of config files", exists=True, allow_dash=True),
-    output_dir: Annotated[Path, typer.Option(help="Path to saved model folder", exists=True, allow_dash=True)] = Path(r"./trained_models"),
+    models_path: Annotated[Path, typer.Option(help="Path to saved model folder or where to save the trained models", exists=True, allow_dash=True)] = Path(r"./trained_models"),
     use_gpu: Annotated[int, typer.Option("--gpu-id", "-g", help="GPU ID or -1 for CPU")] = -1,
     evaluate: Annotated[bool, typer.Option("--evaluate/--train", help="whether to evaluate the models or to train the not yet trained models")] = True,
     unpriv_feature: Annotated[str, typer.Option("--unpriv-feature", "-u", help="The unprivileged fairness feature (m or f) (needed for the evaluation step)")] = "m",
@@ -27,21 +27,21 @@ def run_cli(
     """
     # check whether the paths exists
     assert os.path.exists(config_dir), "Config file dir does not exist"
-    assert os.path.isdir(output_dir), "Output path is not a directory"
+    assert os.path.isdir(models_path), "Output path is not a directory"
 
     if evaluate:
         # evaluate the models
         print("Begin evaluating")
-        evaluate_models(config_dir=config_dir, output_dir=output_dir, use_gpu=use_gpu, unpriv_feature=unpriv_feature, seed=seed)
+        evaluate_models(config_dir=config_dir, models_path=models_path, use_gpu=use_gpu, unpriv_feature=unpriv_feature, seed=seed)
     else:
         # train the not yet trained models
         print("Begin training")
-        train_models(config_dir=config_dir, output_dir=output_dir, use_gpu=use_gpu, seed=seed)
+        train_models(config_dir=config_dir, output_dir=models_path, use_gpu=use_gpu, seed=seed)
 
 
 def evaluate_models(
     config_dir: Union[str, Path],
-    output_dir: Union[str, Path],
+    models_path: Union[str, Path],
     use_gpu: int,
     unpriv_feature: str,
     seed: int
@@ -51,7 +51,7 @@ def evaluate_models(
 
     # get all the config directories
     config_dirs = os.listdir(Path(config_dir))
-    trained_models_names = os.listdir(Path(output_dir))
+    trained_models_names = os.listdir(Path(models_path))
     
     # for each subdirectory go over the configs, extract the names and run the evaluation
     for subdir in config_dirs:
@@ -69,7 +69,7 @@ def evaluate_models(
             # check if the model exists
             if model_name in trained_models_names:
                 # model exists, so run the evaluation and save the metrics
-                metrics.append(evaluate(config_path, output_dir, use_gpu, unpriv_feature=unpriv_feature, verbose=False, seed=seed))
+                metrics.append(evaluate(config_path, models_path, use_gpu, unpriv_feature=unpriv_feature, verbose=False, seed=seed))
 
     # extract the metrics
     end_metrics = []
@@ -84,7 +84,7 @@ def evaluate_models(
 
     # build the pandas dataframe, so we can store the results
     df = pd.DataFrame(end_metrics, columns =['Name', 'precision', 'recall', "f1 (weighted)", "f1 (macro)", "f1_m", "f1_f", "Eq accuracy", "eq opportunity", "fairl_eq_odds", "unpriv_TPR", "unpriv_FPR", "priv_TPR", "priv_FPR"])
-    df.to_csv(os.path.join(output_dir, "metrics.csv"), sep=";")
+    df.to_csv(os.path.join(models_path, "metrics.csv"), sep=";")
 
 
 def train_models(

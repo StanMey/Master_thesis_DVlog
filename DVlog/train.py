@@ -27,13 +27,13 @@ from utils.util import validate_config, process_config, set_seed
 
 def train_cli(
     config_path: Path = typer.Argument(..., help="Path to config file", exists=True, allow_dash=True),
-    output_path: Annotated[Path, typer.Option(help="Path to saved model folder", exists=True, allow_dash=True)] = Path(r"./trained_models"),
+    models_path: Annotated[Path, typer.Option(help="Path to saved model folder", exists=True, allow_dash=True)] = Path(r"./trained_models"),
     use_gpu: Annotated[int, typer.Option("--gpu-id", "-g", help="GPU ID or -1 for CPU")] = -1,
     seed: Annotated[int, typer.Option("--seed", "-s", help="The seed used when randomness is introduced")] = 42
 ):
     """The CLI function handling the interaction part when the user runs the train.py script.
     """
-    train(config_path=config_path, output_path=output_path, use_gpu=use_gpu, seed=seed)
+    train(config_path=config_path, output_path=models_path, use_gpu=use_gpu, seed=seed)
 
 
 def train(

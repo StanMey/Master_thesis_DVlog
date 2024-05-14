@@ -23,7 +23,7 @@ from utils.util import validate_config, process_config, set_seed
 
 def evaluate_cli(
     config_path: Path = typer.Argument(..., help="Path to config file", exists=True, allow_dash=True),
-    model_path: Annotated[Path, typer.Option(help="Path to saved models folder", exists=True, allow_dash=True)] = Path(r"./trained_models"),
+    models_path: Annotated[Path, typer.Option(help="Path to saved models folder", exists=True, allow_dash=True)] = Path(r"./trained_models"),
     use_gpu: Annotated[int, typer.Option("--gpu-id", "-g", help="GPU ID or -1 for CPU")] = -1,
     unpriv_feature: Annotated[str, typer.Option("--unpriv-feature", "-u", help="The unprivileged fairness feature (m or f)")] = "m",
     verbose: Annotated[bool, typer.Option("--verbose", "-v", help="When 'True' prints the measures to console, otherwise returns them as a dict")] = True,
@@ -31,22 +31,22 @@ def evaluate_cli(
 ):
     """The CLI function handling the interaction part when the user runs the evaluate.py script.
     """
-    evaluate(config_path=config_path, model_path=model_path, use_gpu=use_gpu, unpriv_feature=unpriv_feature, verbose=verbose, seed=seed)
+    evaluate(config_path=config_path, models_path=models_path, use_gpu=use_gpu, unpriv_feature=unpriv_feature, verbose=verbose, seed=seed)
 
 
 def evaluate(
     config_path: Union[str, Path],
-    model_path: Union[str, Path],
+    models_path: Union[str, Path],
     use_gpu: int,
     unpriv_feature: str,
     verbose: bool,
-    seed: int
+    seed: int = 42
 ):
     """Function to extract and process the configuration file and setup the models and dataloaders to evaluate the model.
     """
     # check whether the paths exists
     assert os.path.exists(config_path), "Config file does not exist"
-    assert os.path.isdir(model_path), "Model path is not a directory"
+    assert os.path.isdir(models_path), "Model path is not a directory"
 
     # check the unprivileged feature
     assert unpriv_feature in ["m", "f"], "Unprivileged feature should be either 'm' or 'f'"
@@ -59,7 +59,7 @@ def evaluate(
         print(config)
 
     # begin setting up the model for the evaluation cycle
-    model_dir_path = Path(os.path.join(model_path, config_dict.model_name))
+    model_dir_path = Path(os.path.join(models_path, config_dict.model_name))
     saved_model_path = Path(os.path.join(model_dir_path, f"model_{config_dict.model_name}.pth"))
     assert model_dir_path.is_dir(), f"Saved model directory not found: {model_dir_path}"
     assert saved_model_path.is_file(), f"Saved model not found: {saved_model_path}"
