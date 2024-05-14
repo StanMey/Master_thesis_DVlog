@@ -68,8 +68,8 @@ class MultimodalEmbeddingsDataset(Dataset):
             output_item = (*padded_embeddings, class_label)
 
         if self.with_protected:
-            # also add the protected label to the output
-            output_item = (*output_item, protected)
+            # also add the protected label + the video_id itself to the output (since this will be needed for the evaluation part)
+            output_item = (*output_item, protected, video_id)
 
         return output_item
     
@@ -123,7 +123,7 @@ class SyncedMultimodalEmbeddingsDataset(Dataset):
         :type train_config: ConfigDict
         :param to_tensor: , defaults to False
         :type to_tensor: bool, optional
-        :param with_protected: Whether the protected attribute should be returned (for the evaluation part), defaults to False
+        :param with_protected: Whether the protected attribute and the video_id should be returned (for the evaluation part), defaults to False
         :type with_protected: bool, optional
         """
         self.dataset = dataset
@@ -174,8 +174,8 @@ class SyncedMultimodalEmbeddingsDataset(Dataset):
             output_item = (*padded_embeddings, class_label)
 
         if self.with_protected:
-            # also add the protected label to the output
-            output_item = (*output_item, protected)
+            # also add the protected label + the video_id itself to the output (since this will be needed for the evaluation part)
+            output_item = (*output_item, protected, video_id)
 
         return output_item
     

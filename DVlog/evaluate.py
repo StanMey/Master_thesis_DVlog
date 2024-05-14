@@ -40,6 +40,7 @@ def evaluate(
     use_gpu: int,
     unpriv_feature: str,
     verbose: bool,
+    get_raw_predictions: bool = False,
     seed: int = 42
 ):
     """Function to extract and process the configuration file and setup the models and dataloaders to evaluate the model.
@@ -101,15 +102,16 @@ def evaluate(
     test_dataloader = DataLoader(test_data, batch_size=config_dict.batch_size, shuffle=True)
 
     # evaluate the model
-    return evaluate_model(saved_model, test_dataloader, config_dict, unpriv_feature, verbose)
+    return evaluate_model(saved_model, test_dataloader, config_dict, unpriv_feature, verbose, get_raw_preds=get_raw_predictions)
 
 
-def evaluate_model(model, test_dataloader: DataLoader, config_dict: ConfigDict, unpriv_feature: str, verbose: bool) -> Union[None, dict]:
+def evaluate_model(model, test_dataloader: DataLoader, config_dict: ConfigDict, unpriv_feature: str, verbose: bool, get_raw_preds: bool) -> Union[None, dict]:
     """Run the actual evaluation process using the model and dataloader.
     """
     predictions = []
     y_labels = []
     protected = []
+    video_ids = []
 
     # Disable gradient computation and reduce memory consumption.
     with torch.no_grad():
@@ -118,10 +120,10 @@ def evaluate_model(model, test_dataloader: DataLoader, config_dict: ConfigDict, 
             # get the inputs
             if config_dict.n_modalities == 1:
                 # only one modality so unpack the set
-                v_inputs, vlabels, v_protected = vdata
+                v_inputs, vlabels, v_protected, v_video_id = vdata
             else:
                 # more modalities so keep the tuple set
-                v_inputs, vlabels, v_protected = vdata[:-2], vdata[-2], vdata[-1]
+                v_inputs, vlabels, v_protected, v_video_id = vdata[:-3], vdata[-3], vdata[-2], vdata[-1]
 
             # forward
             voutputs = model(v_inputs)
@@ -130,6 +132,7 @@ def evaluate_model(model, test_dataloader: DataLoader, config_dict: ConfigDict, 
             predictions.append(voutputs.numpy())
             y_labels.append(vlabels.numpy())
             protected.append(v_protected)
+            video_ids.append(v_video_id)
 
     # get the performance and fairness metrics
     print(f"Model: {config_dict.model_name}\n----------")
@@ -149,6 +152,10 @@ def evaluate_model(model, test_dataloader: DataLoader, config_dict: ConfigDict, 
         print("Gender-based metrics:\n----------")
         for gender_metric in gender_metrics:
             print("Metrics for label {0}:\n---\nPrecision: {1}\nRecall: {2}\nF1-score: {3}\n----------".format(*gender_metric))
+    
+    elif get_raw_preds:
+        # return the raw predictions (each value is a 2d array because of the dataloader)
+        return predictions, y_labels, protected, video_ids
     
     else:
         # return all measures as a dict
