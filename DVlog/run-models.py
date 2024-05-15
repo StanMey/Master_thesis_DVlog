@@ -76,14 +76,18 @@ def evaluate_models(
     for metric in metrics:
         weighted = metric.get("weighted")
         fairness = metric.get("fairness")
-        end_metrics.append(
-            (metric.get("model_name"), weighted.get("precision"), weighted.get("recall"), weighted.get("fscore"), metric.get("macro").get("fscore"),
-             weighted.get("m_fscore"), weighted.get("f_fscore"), fairness.get("eq_acc"), fairness.get("eq_oppor"), fairness.get("fairl_eq_odds"),
-             fairness.get("unpriv").get("TPR"), fairness.get("unpriv").get("FPR"), fairness.get("priv").get("TPR"), fairness.get("priv").get("FPR"))
+
+        # get all metrics and put them to floats
+        float_metrics = (
+            weighted.get("precision"), weighted.get("recall"), weighted.get("fscore"), metric.get("macro").get("fscore"),
+            weighted.get("m_fscore"), weighted.get("f_fscore"), fairness.get("eq_acc"), fairness.get("eq_oppor"), fairness.get("fairl_eq_odds"),
+            fairness.get("unpriv").get("TPR"), fairness.get("unpriv").get("FPR"), fairness.get("priv").get("TPR"), fairness.get("priv").get("FPR")
         )
+        float_metrics = tuple(map(float, float_metrics))
+        end_metrics.append((metric.get("model_name"), *float_metrics))
 
     # build the pandas dataframe, so we can store the results
-    df = pd.DataFrame(end_metrics, columns =['Name', 'precision', 'recall', "f1 (weighted)", "f1 (macro)", "f1_m", "f1_f", "Eq accuracy", "eq opportunity", "fairl_eq_odds", "unpriv_TPR", "unpriv_FPR", "priv_TPR", "priv_FPR"])
+    df = pd.DataFrame(end_metrics, columns=['Name', 'precision', 'recall', "f1 (weighted)", "f1 (macro)", "f1_m", "f1_f", "Eq accuracy", "eq opportunity", "fairl_eq_odds", "unpriv_TPR", "unpriv_FPR", "priv_TPR", "priv_FPR"])
     df.to_csv(os.path.join(models_path, "metrics.csv"), sep=";")
 
 
