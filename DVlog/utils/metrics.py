@@ -13,9 +13,9 @@ from sklearn.metrics import (
 def calculate_performance_measures(y_true: list[np.ndarray], y_pred: list[np.ndarray]) -> Tuple[float, float, float, float, float]:
     """Function to calculate all the performance measures.
 
-    :param y_true: A 2d list with the model's predictions
+    :param y_true: A 2d list with the ground truths
     :type y_true: list[np.ndarray]
-    :param y_pred: A 2d list with the ground truths
+    :param y_pred: A 2d list with the model's predictions
     :type y_pred: list[np.ndarray]
     :return: Returns the calculated performance measures
     :rtype: Tuple[float, float, float, float, float]
@@ -40,9 +40,9 @@ def calculate_performance_measures(y_true: list[np.ndarray], y_pred: list[np.nda
 def calculate_gender_performance_measures(y_true: list[np.ndarray], y_pred: list[np.ndarray], protected: list[str]) -> list[Tuple[str, float, float, float]]:
     """_summary_
 
-    :param y_true: A 2d list with the model's predictions
+    :param y_true: A 2d list with the ground truths
     :type y_true: list[np.ndarray]
-    :param y_pred: A 2d list with the ground truths
+    :param y_pred: A 2d list with the model's predictions
     :type y_pred: list[np.ndarray]
     :return: _description_
     :rtype: Tuple[float, float, float, float]
@@ -70,9 +70,9 @@ def calculate_gender_performance_measures(y_true: list[np.ndarray], y_pred: list
 def calculate_fairness_measures(y_true: list[np.ndarray], y_pred: list[np.ndarray], protected: list[str], unprivileged: str):
     """Calculates the actual fairness measures.
 
-    :param y_true: A 2d list with the model's predictions
+    :param y_true: A 2d list with the ground truths
     :type y_true: list[np.ndarray]
-    :param y_pred: A 2d list with the ground truths
+    :param y_pred: A 2d list with the model's predictions
     :type y_pred: list[np.ndarray]
     :param protected: A 2d list with the sensitive features
     :type protected: list[str]
