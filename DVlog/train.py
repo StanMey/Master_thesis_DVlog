@@ -19,7 +19,7 @@ from pathlib import Path
 from models.model import UnimodalDVlogModel, BimodalDVlogModel
 from models.trimodal_model import TrimodalDVlogModel
 
-from utils.dataloaders import MultimodalEmbeddingsDataset, SyncedMultimodalEmbeddingsDataset
+from utils.dataloaders import BiasMitMultimodalEmbeddingsDataset, MultimodalEmbeddingsDataset, SyncedMultimodalEmbeddingsDataset
 from utils.metrics import calculate_performance_measures
 from utils.util import ConfigDict
 from utils.util import validate_config, process_config, set_seed
@@ -65,6 +65,11 @@ def train(
         # use the synced multimodal dataloader
         training_data = SyncedMultimodalEmbeddingsDataset("train", config_dict, to_tensor=True)
         val_data = SyncedMultimodalEmbeddingsDataset("val", config_dict, to_tensor=True)
+    
+    elif config_dict.bias_mit:
+        # we will use a bias mitigation approach
+        training_data = BiasMitMultimodalEmbeddingsDataset("train", config_dict, to_tensor=True)
+        val_data = MultimodalEmbeddingsDataset("val", config_dict, to_tensor=True)
 
     else:
         # use the regular multimodal dataloader

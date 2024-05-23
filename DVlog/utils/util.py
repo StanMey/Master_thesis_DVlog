@@ -56,6 +56,12 @@ def validate_config(config: dict):
         assert keys_exists(config, "model", "multimodal", "tri_type"), f"no 'tri_type' defined in the config file"
         chosen_option, available_trioptions = get_config_value(config, "model", "multimodal", "tri_type"), ["crisscross", "layered", "concat"]
         assert chosen_option in available_trioptions, f"tri_type {chosen_option} invalid; please choose one of {available_trioptions}"
+    
+    # if we do do a some bias mitigation, check whether it is implemented
+    if keys_exists(config, "training", "bias_mit"):
+        chosen_option, available_biasoptions = get_config_value(config, "training", "bias_mit"), ["mixfeat", "oversample"]
+        assert chosen_option in available_biasoptions, f"Bias mitigation option {chosen_option} invalid; please choose one of {available_biasoptions}"
+        assert 1 <= n_modalities <= 2, f"Bias mitigation approaches only implemented 1 or 2 modalities, not for {n_modalities}"
 
 
 
@@ -125,6 +131,7 @@ class ConfigDict:
 
         self.multi_bi_type = None if not keys_exists(self.config, "model", "multimodal", "bi_type") else get_config_value(self.config, "model", "multimodal", "bi_type")
         self.multi_tri_type = None if not keys_exists(self.config, "model", "multimodal", "tri_type") else get_config_value(self.config, "model", "multimodal", "tri_type")
+        self.bias_mit = None if not keys_exists(self.config, "training", "bias_mit") else get_config_value(self.config, "training", "bias_mit")
 
         # set up the training variables (here we do have to check each feature since we otherwise can use default values)
         self.batch_size = 32 if not keys_exists(self.config, "training", "batch_size") else get_config_value(self.config, "training", "batch_size")
