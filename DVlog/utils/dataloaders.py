@@ -3,11 +3,9 @@ import pandas as pd
 import os
 import torch
 import json
-import random
 
 from torch.utils.data import Dataset
 from pathlib import Path
-from itertools import combinations
 
 from utils.util import ConfigDict
 
@@ -389,72 +387,3 @@ class BiasMitMultimodalEmbeddingsDataset(Dataset):
             df_annotations = self._setup_oversample_dataset(df_annotations)
 
         return df_annotations
-
-    def _setup_oversample_dataset(self, annotations_df: Path):
-        """Setup the dataset using the 'oversampling' approach.
-
-        :param annotations_file: _description_
-        :type annotations_file: Path
-        """
-        # get the minority and majority group
-        samples_dist = annotations_df.value_counts("gender").sort_values()
-        labels, samples = samples_dist.index.tolist(), samples_dist.tolist()
-        minority_label, minority_count, majority_count = labels[0], samples[0], samples[1]
-
-        # get all the samples for the minority class
-        minority_df = annotations_df[annotations_df["gender"] == minority_label]
-        sample_diff = majority_count - minority_count
-
-        # randomly select from the dataframe
-        sample_df = minority_df.sample(n=sample_diff, replace=True, random_state=42)
-
-        # concatenate this sampled dataframe to the original annotation set
-        annotations_df = pd.concat([annotations_df, sample_df])
-        return annotations_df
-
-
-    def _setup_mixfeat_dataset(self, annotations_df: Path):
-        """Setup the mixfeat features following the 'Fairness for a Small Dataset of Multi-modal Dyadic Mental Well-being Coaching' paper.
-
-        :param annotations_file: _description_
-        :type annotations_file: Path
-        """
-        # get the minority and majority group
-        samples_dist = annotations_df.value_counts("gender").sort_values()
-        labels, samples = samples_dist.index.tolist(), samples_dist.tolist()
-        minority_label, minority_count, majority_count = labels[0], samples[0], samples[1]
-
-        # get all the samples for the minority class and divide them in positive and negative samples
-        pos_minority_vids = annotations_df[(annotations_df["gender"] == minority_label) & (annotations_df["label"] == 1)]["video_id"].tolist()
-        neg_minority_vids = annotations_df[(annotations_df["gender"] == minority_label) & (annotations_df["label"] == 0)]["video_id"].tolist()
-        sample_diff = majority_count - minority_count
-
-        # randomly select combinations of video_ids for both labels
-        pos_combinations = list(combinations(pos_minority_vids, 2))
-        pos_samples_choice = random.sample(pos_combinations, sample_diff // 2)
-
-        neg_combinations = list(combinations(neg_minority_vids, 2))
-        neg_samples_choice = random.sample(neg_combinations, sample_diff // 2)
-
-        # select the beta's for loading in the data (the inverse of the probs will be calculated later)
-        beta_probs = map(tuple, np.random.rand(sample_diff, 1))
-        
-        # expand the original annotations dataframe with the mixfeat column
-        annotations_df["mixfeat"] = None
-        annotations_df["mixfeat_probs"] = None
-
-        # build the dataframe that is to be concatenated to the original dataframe which contains the chosen mixfeat combinations
-        mixfeat_df = pd.DataFrame(
-            {
-                "video_id": [None] * sample_diff,
-                "label": [1 for _ in range(len(pos_samples_choice))] + [0 for _ in range(len(neg_samples_choice))],
-                "gender": [minority_label] * sample_diff,
-                "dataset": [self.dataset] * sample_diff,
-                "mixfeat": pos_samples_choice + neg_samples_choice,
-                "mixfeat_probs": beta_probs
-            }
-        )
-
-        # concatenate both dataframes
-        annotations_df = pd.concat([annotations_df, mixfeat_df])
-        return annotations_df
