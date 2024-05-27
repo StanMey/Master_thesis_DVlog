@@ -8,6 +8,7 @@ from torch.utils.data import Dataset
 from pathlib import Path
 
 from utils.util import ConfigDict
+from utils.bias_mitigations import apply_oversampling, apply_mixfeat_oversampling
 
 
 class MultimodalEmbeddingsDataset(Dataset):
