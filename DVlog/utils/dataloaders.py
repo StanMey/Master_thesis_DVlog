@@ -252,8 +252,8 @@ class SyncedMultimodalEmbeddingsDataset(Dataset):
         return parsed_json
 
 
-class BiasMitMultimodalEmbeddingsDataset(Dataset):
-    def __init__(self, dataset: str, train_config: ConfigDict, to_tensor: bool = False, with_protected: bool = False):
+class BiasmitMultimodalEmbeddingsDataset(Dataset):
+    def __init__(self, dataset: str, train_config: ConfigDict, to_tensor: bool = False, with_protected: bool = False, seed: int=42):
         """Loads in the (multiple) temporal features or embeddings for the model.
 
         :param dataset: Which type of dataset needs to be loaded in (train, test, or val)
@@ -266,6 +266,7 @@ class BiasMitMultimodalEmbeddingsDataset(Dataset):
         :type with_protected: bool, optional
         """
         self.dataset = dataset
+        self.seed = seed
         self.config = train_config
 
         # check the input
@@ -275,7 +276,9 @@ class BiasMitMultimodalEmbeddingsDataset(Dataset):
         # load in the dataset labels (take into account the type of bias mitigation that has to be performed)
         self.n_modalities = self.config.n_modalities
         self.bias_mit_type = self.config.bias_mit
-        self.data_labels = self.retrieve_dataset_labels(self.annotations_file, self.bias_mit_type)
+        self.bias_mixfeat_type = self.config.mixfeat_type
+
+        self.data_labels = self.retrieve_dataset_labels(self.annotations_file, self.bias_mit_type, self.bias_mixfeat_type)
         self.seq_length = self.config.sequence_length
         self.to_tensor = to_tensor
         self.with_protected = with_protected
@@ -290,8 +293,8 @@ class BiasMitMultimodalEmbeddingsDataset(Dataset):
 
         # load in the first embedding
         if self.bias_mit_type == "mixfeat":
-            mixfeat_ids = self.data_labels.iloc[idx, 4]
-            mixfeat_probs = self.data_labels.iloc[idx, 5]
+            mixfeat_ids = self.data_labels.iloc[idx, 3]
+            mixfeat_probs = self.data_labels.iloc[idx, 4]
 
             if mixfeat_ids:
                 # we have a synthetic example, so use the mixfeat approach
@@ -371,7 +374,7 @@ class BiasMitMultimodalEmbeddingsDataset(Dataset):
         
         return padded_embeddings
 
-    def retrieve_dataset_labels(self, annotations_file: Path, bias_mit_type: str):
+    def retrieve_dataset_labels(self, annotations_file: Path, bias_mit_type: str, mixfeat_type: str):
         """Filter the annotation dataset for the specific dataset we want to use.
 
         :param annotations_file: _description_
@@ -383,8 +386,8 @@ class BiasMitMultimodalEmbeddingsDataset(Dataset):
         df_annotations = df_annotations[df_annotations["dataset"] == self.dataset]
 
         if bias_mit_type == "mixfeat":
-            df_annotations = self._setup_mixfeat_dataset(df_annotations)
+            df_annotations = apply_mixfeat_oversampling(df_annotations, mixfeat_type, self.n_modalities, self.seed)
         elif bias_mit_type == "oversample":
-            df_annotations = self._setup_oversample_dataset(df_annotations)
+            df_annotations = apply_oversampling(df_annotations, self.seed)
 
         return df_annotations
