@@ -39,7 +39,7 @@ class CrissCrossAttentionModule(nn.Module):
         left_attent, _ = self.left_attention_block(query=U_l, key=U_m, value=U_r)
         mid_attent, _ = self.left_attention_block(query=U_m, key=U_r, value=U_l)
         right_attent, _ = self.right_attention_block(query=U_r, key=U_l, value=U_m)
-        
+
         # add residual and layer normalization
         U_l = left_attent + U_l
         U_l = self.layer_norm1(U_l)
@@ -92,6 +92,39 @@ class LayeredCrossAttentionModule(nn.Module):
         return z
 
 
+class Layeredv2CrossAttentionModule(nn.Module):
+    """Implementation of layered Cross-attention v2.
+    Here we concatenate the first and second inputs before applying the cross-attention operation.
+    We assume that the first input is the textual feature (or the feature that gets combined at the last cross-attention block)
+    """
+    def __init__(self, d_model: int = 256, n_heads: int = 16):
+        """
+        :param d_model: The dimension of the encoder representation (d_u in the paper), defaults to 256
+        :type d_model: int, optional
+        :param n_heads: The number of attention heads in the cross-attention, defaults to 16
+        :type n_heads: int, optional
+        """
+        super().__init__()
+        self.d_model = d_model
+        self.n_heads = n_heads
+
+        # setup the cross_attention layer
+        self.cross_attention = CrossAttentionModule(self.d_model, n_heads=self.n_heads)
+
+        # the embedding layer
+        self.fc = nn.Linear(self.d_model*2, self.d_model)  # embedding layer to set the input data to d_u
+
+    def forward(self, first_input, second_input, third_input):
+        # inputs representation shape: [batch_size, seq_len, input_dim]
+        # perform the concat operation and use the embedding layer to downsize the representation to the original size
+        z = torch.cat((first_input, second_input), 2)
+        z = self.fc(z)
+
+        # apply the last cross-attention operation
+        z = self.cross_attention(z, third_input)
+        return z
+
+
 class TrimodalDVlogModel(nn.Module):
     """_summary_
     
@@ -140,10 +173,17 @@ class TrimodalDVlogModel(nn.Module):
             # apply the layered cross attention module
             self.tricrossattention = LayeredCrossAttentionModule(self.d_model, n_heads=self.cross_n_heads)
             self.detection_layer = DetectionLayer(self.d_model*2, use_std=use_std)
+        
+        elif self.cross_type == "layeredv2":
+            # apply the layeredv2 cross attention module
+            self.tricrossattention = Layeredv2CrossAttentionModule(self.d_model, n_heads=self.cross_n_heads)
+            self.detection_layer = DetectionLayer(self.d_model*2, use_std=use_std)
+
         elif self.cross_type == "crisscross":
             # use the criss cross attention module
             self.tricrossattention = CrissCrossAttentionModule(self.d_model, n_heads=self.cross_n_heads)
             self.detection_layer = DetectionLayer(self.d_model*3, use_std=use_std)
+
         else:
             # just concatenate the outputs of the encoders
             self.detection_layer = DetectionLayer(self.d_model*3, use_std=use_std)
