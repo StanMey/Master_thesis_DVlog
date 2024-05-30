@@ -65,7 +65,7 @@ def validate_config(config: dict):
 
         # if we do choose mixfeat check if the corresponding mixfeat type is implemented
         if chosen_option == "mixfeat":
-            mixfeat_option, available_mixf_options = get_config_value(config, "training", "mixfeat_type"),  ['group_upsample', 'mixgender_upsample', 'subgroup_upsample', 'synthetic']
+            mixfeat_option, available_mixf_options = get_config_value(config, "training", "mixfeat_type"),  ['group_upsample', 'mixgender_upsample', 'subgroup_upsample', 'synthetic', 'synthetic_mixgendered']
             assert mixfeat_option in available_mixf_options, f"Bias mitigation option {mixfeat_option} invalid; please choose one of {available_mixf_options}"
 
 

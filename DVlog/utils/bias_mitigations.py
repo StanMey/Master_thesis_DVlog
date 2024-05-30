@@ -11,6 +11,8 @@ def apply_oversampling(annotations_df: pd.DataFrame, seed: int=42) -> pd.DataFra
 
     :param annotations_file: Dataframe consisting of the columns 'gender', and 'depression'.
     :type annotations_file: pd.DataFrame
+    :param seed: The replication seed, defaults to 42
+    :type seed: int, optional
     """
     # get the minority and majority group
     samples_dist = annotations_df.value_counts("gender").sort_values()
@@ -34,11 +36,11 @@ def apply_mixfeat_oversampling(annotations_df: pd.DataFrame, mixfeat_type: str, 
 
     :param annotations_df: Dataframe consisting of (at least) the columns 'gender', and 'depression'.
     :type annotations_df: pd.DataFrame
-    :param mixfeat_type: Specifies which mixfeat experiment is ran, can be either ['group_upsample', 'mixgender_upsample', 'subgroup_upsample', 'pure_synthetic']
+    :param mixfeat_type: Specifies which mixfeat experiment is ran, can be either ['group_upsample', 'mixgender_upsample', 'subgroup_upsample', 'pure_synthetic', 'synthetic_mixgendered']
     :type mixfeat_type: str
-    :param n_modalities: _description_
+    :param n_modalities: The amount of modalities of the model
     :type n_modalities: int
-    :param seed: _description_, defaults to 42
+    :param seed: The replication seed, defaults to 42
     :type seed: int, optional
     :return: _description_
     :rtype: pd.DataFrame
@@ -58,8 +60,12 @@ def apply_mixfeat_oversampling(annotations_df: pd.DataFrame, mixfeat_type: str, 
 
     elif mixfeat_type == "synthetic":
         # Use only the mixfeat samples from the 'depression' class.
-        mixfeat_df = setup_mixfeat_synthetic_only(annotations_df, n_modalities, seed)
-    
+        mixfeat_df = setup_mixfeat_synthetic(annotations_df, n_modalities, seed, mixgender=False)
+
+    elif mixfeat_type == "synthetic_mixgendered":
+        # Use only the mixfeat samples from the 'depression' class.
+        mixfeat_df = setup_mixfeat_synthetic(annotations_df, n_modalities, seed, mixgender=True)
+
     # setup and expand the original annotations dataframe with the mixfeat columns
     annotations_df.drop("dataset", axis=1, inplace=True)
     annotations_df["mixfeat"] = None
@@ -83,6 +89,10 @@ def setup_mixfeat_group_upsample(annotations_df: pd.DataFrame, n_modalities: int
 
     :param annotations_file: the Dataframe consisting of the samples.
     :type annotations_file: Path
+    :param n_modalities: The amount of modalities of the model
+    :type n_modalities: int
+    :param seed: The replication seed
+    :type seed: int
     """
     # get the minority and majority group
     samples_dist = annotations_df.value_counts("gender").sort_values()
@@ -119,12 +129,16 @@ def setup_mixfeat_group_upsample(annotations_df: pd.DataFrame, n_modalities: int
 
 def setup_mixfeat_mixgender_upsample(annotations_df: pd.DataFrame, n_modalities: int, seed: int) -> pd.DataFrame:
     """Here we upsample the depression class using mixfeat in a mixgendered way.
-    For the D-Vlog this means that the depression class gets upsampled by .
+    For the D-Vlog this means that the depression class gets upsampled by  .
     
     :param annotations_file: the Dataframe consisting of the samples.
     :type annotations_file: Path
+    :param n_modalities: The amount of modalities of the model
+    :type n_modalities: int
+    :param seed: The replication seed
+    :type seed: int
     """
-    # get the minority and majority group
+    # get the minority and majority label group
     samples_dist = annotations_df.value_counts("label").sort_values()
     labels, samples = samples_dist.index.tolist(), samples_dist.tolist()
     minority_label, minority_count, majority_count = labels[0], samples[0], samples[1]
@@ -137,7 +151,7 @@ def setup_mixfeat_mixgender_upsample(annotations_df: pd.DataFrame, n_modalities:
     # randomly select ids for both genders to combine later
     male_samples_choice = random.sample(male_minority_vids, sample_diff)
     female_samples_choice = random.sample(female_minority_vids, sample_diff)
-    final_samples = list(zip(male_samples_choice, female_samples_choice))
+    new_samples = list(zip(male_samples_choice, female_samples_choice))
 
     # select the beta's for loading in the data (the inverse of the probs will be calculated later)
     beta_probs = list(map(tuple, np.random.rand(sample_diff, n_modalities)))
@@ -147,7 +161,7 @@ def setup_mixfeat_mixgender_upsample(annotations_df: pd.DataFrame, n_modalities:
             "video_id": [None] * sample_diff,
             "label": [minority_label] * sample_diff,
             "gender": ["both"] * sample_diff,
-            "mixfeat": final_samples,
+            "mixfeat": new_samples,
             "mixfeat_probs": beta_probs
         }
     )
@@ -161,6 +175,10 @@ def setup_mixfeat_subgroup_upsample(annotations_df: pd.DataFrame, n_modalities: 
 
     :param annotations_file: the Dataframe consisting of the samples.
     :type annotations_file: Path
+    :param n_modalities: The amount of modalities of the model
+    :type n_modalities: int
+    :param seed: The replication seed
+    :type seed: int
     """
     # get the minority and majority group
     annotations_df = annotations_df[annotations_df["label"] == 1]
@@ -191,40 +209,60 @@ def setup_mixfeat_subgroup_upsample(annotations_df: pd.DataFrame, n_modalities: 
     return mixfeat_df
 
 
-def setup_mixfeat_synthetic_only(annotations_df: pd.DataFrame, n_modalities: int, seed: int) -> pd.DataFrame:
-    """Here we upsample minority class-minority gender subgroup using mixfeat.
-    For the D-Vlog this will mean that we upsample the 'depressed male' group
+def setup_mixfeat_synthetic(annotations_df: pd.DataFrame, n_modalities: int, seed: int, mixgender: bool) -> pd.DataFrame:
+    """Here we sample from both the male and female depression group using mixfeat and the original label distributions.
+    For the mixgender approach we sample from both genders by making combinations between samples and give back the total count of 'depression labels'
+    for the normal approach, we sample from both 'depression' gender subgroups seperately using the original distributions.
 
     :param annotations_file: the Dataframe consisting of the samples.
     :type annotations_file: Path
+    :param n_modalities: The amount of modalities of the model
+    :type n_modalities: int
+    :param seed: The replication seed
+    :type seed: int
+    :param mixgender: whether to sample using a mixgender approach or not
+    :type mixgender: bool
+    :return: returns a dataframe consisting of the mixfeat choices and the probabilities
+    :rtype: pd.DataFrame
     """
     # get the minority and majority group
     annotations_df = annotations_df[annotations_df["label"] == 1]
     samples_dist = annotations_df.value_counts("gender").sort_values()
     labels, samples = samples_dist.index.tolist(), samples_dist.tolist()
     minority_label, minority_count, majority_label, majority_count = labels[0], samples[0], labels[1], samples[1]
-    sample_diff = minority_count + majority_count
+    sample_size = minority_count + majority_count
 
-    # get all the samples for the minority class and divide them in positive and negative samples
+    # get all the samples from both the majority and minority gender
     min_depressed_vids = annotations_df[annotations_df["gender"] == minority_label]["video_id"].tolist()
     maj_depressed_vids = annotations_df[annotations_df["gender"] == majority_label]["video_id"].tolist()
 
-    # randomly select combinations of video_ids for both genders
-    min_combinations = list(combinations(min_depressed_vids, 2))
-    min_samples_choice = random.sample(min_combinations, minority_count)
+    if mixgender:
+        # use the mixgender approach (with replacement for selecting the samples)
+        min_samples_choice = random.choices(min_depressed_vids, k=sample_size)
+        maj_samples_choice = random.choices(maj_depressed_vids, k=sample_size)
+        new_samples = list(zip(min_samples_choice, maj_samples_choice))
 
-    maj_combinations = list(combinations(maj_depressed_vids, 2))
-    maj_samples_choice = random.sample(maj_combinations, majority_count)
+    else:
+        # sample from the male and female distribution separately
+        # randomly select combinations of video_ids for both genders
+        min_combinations = list(combinations(min_depressed_vids, 2))
+        min_samples_choice = random.sample(min_combinations, minority_count)
+
+        maj_combinations = list(combinations(maj_depressed_vids, 2))
+        maj_samples_choice = random.sample(maj_combinations, majority_count)
+
+        # concatenate the chosen samples
+        new_samples = min_samples_choice + maj_samples_choice
 
     # select the beta's for loading in the data (the inverse of the probs will be calculated later)
-    beta_probs = list(map(tuple, np.random.rand(sample_diff, n_modalities)))
+    beta_probs = list(map(tuple, np.random.rand(sample_size, n_modalities)))
 
     mixfeat_df = pd.DataFrame(
         {
-            "video_id": [None] * sample_diff,
-            "label": [1] * sample_diff,
-            "gender": [minority_label] * minority_count + [majority_label] * majority_count,
-            "mixfeat": min_samples_choice + maj_samples_choice,
+            "video_id": [None] * sample_size,
+            "label": [1] * sample_size,
+            "gender": ["both"] * sample_size if mixgender else [minority_label] * minority_count + [majority_label] * majority_count,
+            "mixfeat": new_samples,
             "mixfeat_probs": beta_probs
         }
     )
@@ -239,7 +277,8 @@ if __name__ == "__main__":
 
     # run the function
     # apply_mixfeat_oversampling(df_annotations, "group_upsample", 1)
-    # apply_mixfeat_oversampling(df_annotations, "mixgender_upsample", 1)
+    df = apply_mixfeat_oversampling(df_annotations, "mixgender_upsample", 1)
     # apply_mixfeat_oversampling(df_annotations, "subgroup_upsample", 1)
-    df = apply_mixfeat_oversampling(df_annotations, "synthetic", 1)
-    print(df.head())
+    # df = apply_mixfeat_oversampling(df_annotations, "synthetic", 1)
+    # df = apply_mixfeat_oversampling(df_annotations, "synthetic_mixgendered", 1)
+    print(df.head(-5))
