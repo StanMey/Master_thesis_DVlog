@@ -12,7 +12,7 @@ from utils.bias_mitigations import apply_oversampling, apply_mixfeat_oversamplin
 
 
 class MultimodalEmbeddingsDataset(Dataset):
-    def __init__(self, dataset: str, train_config: ConfigDict, to_tensor: bool = False, with_protected: bool = False):
+    def __init__(self, dataset: str, train_config: ConfigDict, to_tensor: bool = False, with_protected: bool = False, gender_spec: str = None):
         """Loads in the (multiple) temporal features or embeddings for the model.
 
         :param dataset: Which type of dataset needs to be loaded in (train, test, or val)
@@ -23,9 +23,12 @@ class MultimodalEmbeddingsDataset(Dataset):
         :type to_tensor: bool, optional
         :param with_protected: Whether the protected attribute should be returned (for the evaluation part), defaults to False
         :type with_protected: bool, optional
+        :param gender_spec: Whether we only want to load in one gender
+        :type gender_spec: str, optional
         """
         self.dataset = dataset
         self.config = train_config
+        self.gender_spec = gender_spec
 
         # check the input
         self.annotations_file = self.config.annotations_file
@@ -107,6 +110,10 @@ class MultimodalEmbeddingsDataset(Dataset):
         :type annotations_file: Path
         """
         df_annotations = pd.read_csv(annotations_file)
+
+        # check if we have to filter on gender
+        if self.gender_spec:
+            df_annotations[df_annotations["gender"] == self.gender_spec]
 
         # filter and return
         return df_annotations[df_annotations["dataset"] == self.dataset]

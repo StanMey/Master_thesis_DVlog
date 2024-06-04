@@ -29,24 +29,27 @@ def train_cli(
     config_path: Path = typer.Argument(..., help="Path to config file", exists=True, allow_dash=True),
     models_path: Annotated[Path, typer.Option(help="Path to saved model folder", exists=True, allow_dash=True)] = Path(r"./trained_models"),
     use_gpu: Annotated[int, typer.Option("--gpu-id", "-g", help="GPU ID or -1 for CPU")] = -1,
-    seed: Annotated[int, typer.Option("--seed", "-s", help="The seed used when randomness is introduced")] = 42
+    seed: Annotated[int, typer.Option("--seed", "-s", help="The seed used when randomness is introduced")] = 42,
+    gender_spec: Annotated[str, typer.Option("--gspec", help="Whether we want to run the model on only one gender ['m' or 'f']")] = None
 ):
     """The CLI function handling the interaction part when the user runs the train.py script.
     """
-    train(config_path=config_path, output_path=models_path, use_gpu=use_gpu, seed=seed)
+    train(config_path=config_path, output_path=models_path, use_gpu=use_gpu, seed=seed, gender_spec=gender_spec)
 
 
 def train(
     config_path: Union[str, Path],
     output_path: Union[str, Path],
     use_gpu: int,
-    seed: int
+    seed: int,
+    gender_spec: str = None
 ):
     """Function to extract and process the configuration file and setup the models and dataloaders.
     """
     # check whether the paths exists
     assert os.path.exists(config_path), "Config file does not exist"
     assert os.path.isdir(output_path), "Output path is not a directory"
+    assert gender_spec in ["m", "f", None], "Gender specific token not correct"
 
     # check the config file on completeness
     config = Config().from_disk(config_path)
@@ -73,8 +76,8 @@ def train(
 
     else:
         # use the regular multimodal dataloader
-        training_data = MultimodalEmbeddingsDataset("train", config_dict, to_tensor=True)
-        val_data = MultimodalEmbeddingsDataset("val", config_dict, to_tensor=True)
+        training_data = MultimodalEmbeddingsDataset("train", config_dict, to_tensor=True, gender_spec=gender_spec)
+        val_data = MultimodalEmbeddingsDataset("val", config_dict, to_tensor=True, gender_spec=gender_spec)
 
     # setup the dataloader
     train_dataloader = DataLoader(training_data, batch_size=config_dict.batch_size, shuffle=True)

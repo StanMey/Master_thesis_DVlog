@@ -27,11 +27,12 @@ def evaluate_cli(
     use_gpu: Annotated[int, typer.Option("--gpu-id", "-g", help="GPU ID or -1 for CPU")] = -1,
     unpriv_feature: Annotated[str, typer.Option("--unpriv-feature", "-u", help="The unprivileged fairness feature (m or f)")] = "m",
     verbose: Annotated[bool, typer.Option("--verbose", "-v", help="When 'True' prints the measures to console, otherwise returns them as a dict")] = True,
-    seed: Annotated[int, typer.Option("--seed", "-s", help="The seed used when randomness is introduced")] = 42
+    seed: Annotated[int, typer.Option("--seed", "-s", help="The seed used when randomness is introduced")] = 42,
+    gender_spec: Annotated[str, typer.Option("--gspec", help="Whether we want to run the model on only one gender ['m' or 'f']")] = None
 ):
     """The CLI function handling the interaction part when the user runs the evaluate.py script.
     """
-    evaluate(config_path=config_path, models_path=models_path, use_gpu=use_gpu, unpriv_feature=unpriv_feature, verbose=verbose, seed=seed)
+    evaluate(config_path=config_path, models_path=models_path, use_gpu=use_gpu, unpriv_feature=unpriv_feature, verbose=verbose, seed=seed, gender_spec=gender_spec)
 
 
 def evaluate(
@@ -41,7 +42,8 @@ def evaluate(
     unpriv_feature: str,
     verbose: bool,
     get_raw_predictions: bool = False,
-    seed: int = 42
+    seed: int = 42,
+    gender_spec: str = None
 ):
     """Function to extract and process the configuration file and setup the models and dataloaders to evaluate the model.
     """
@@ -51,6 +53,7 @@ def evaluate(
 
     # check the unprivileged feature
     assert unpriv_feature in ["m", "f"], "Unprivileged feature should be either 'm' or 'f'"
+    assert gender_spec in ["m", "f", None], "Gender specific token not correct"
 
     # check the config file on completeness
     config = Config().from_disk(config_path)
@@ -96,16 +99,16 @@ def evaluate(
         # use the synced data loader
         test_data = SyncedMultimodalEmbeddingsDataset("test", config_dict, to_tensor=True, with_protected=True)
     else:
-        test_data = MultimodalEmbeddingsDataset("test", config_dict, to_tensor=True, with_protected=True)
+        test_data = MultimodalEmbeddingsDataset("test", config_dict, to_tensor=True, with_protected=True, gender_spec=gender_spec)
 
     # setup the dataloader
     test_dataloader = DataLoader(test_data, batch_size=config_dict.batch_size, shuffle=True)
 
     # evaluate the model
-    return evaluate_model(saved_model, test_dataloader, config_dict, unpriv_feature, verbose, get_raw_preds=get_raw_predictions)
+    return evaluate_model(saved_model, test_dataloader, config_dict, unpriv_feature, verbose, get_raw_preds=get_raw_predictions, gender_spec=gender_spec)
 
 
-def evaluate_model(model, test_dataloader: DataLoader, config_dict: ConfigDict, unpriv_feature: str, verbose: bool, get_raw_preds: bool) -> Union[None, dict]:
+def evaluate_model(model, test_dataloader: DataLoader, config_dict: ConfigDict, unpriv_feature: str, verbose: bool, get_raw_preds: bool, gender_spec: str = None) -> Union[None, dict]:
     """Run the actual evaluation process using the model and dataloader.
     """
     predictions = []
@@ -139,19 +142,24 @@ def evaluate_model(model, test_dataloader: DataLoader, config_dict: ConfigDict, 
 
     # calculate the performance and fairness measures
     accuracy, w_precision, w_recall, w_fscore, m_fscore = calculate_performance_measures(y_labels, predictions)
-    eq_oppor, eq_acc, fairl_eq_odds, unpriv_stats, priv_stats = calculate_fairness_measures(y_labels, predictions, protected, unprivileged=unpriv_feature)
-    gender_metrics = calculate_gender_performance_measures(y_labels, predictions, protected)
+
+    if not gender_spec:
+        # if we evaluate only for one gender, doing fairness measures and gender performance does not make sense
+        eq_oppor, eq_acc, fairl_eq_odds, unpriv_stats, priv_stats = calculate_fairness_measures(y_labels, predictions, protected, unprivileged=unpriv_feature)
+        gender_metrics = calculate_gender_performance_measures(y_labels, predictions, protected)
 
     if verbose:
         # print all the calculated measures
         print(f"(weighted) -->\nAccuracy: {accuracy}\nPrecision: {w_precision}\nRecall: {w_recall}\nF1-score: {w_fscore}")
         print(f"(macro) -->\nF1-score: {m_fscore}\n----------")
-        print(f"Equal odds (fairlearn): {fairl_eq_odds}\nEqual opportunity: {eq_oppor}\nEqual accuracy: {eq_oppor}\n----------")
 
-        # print the gender-based metrics
-        print("Gender-based metrics:\n----------")
-        for gender_metric in gender_metrics:
-            print("Metrics for label {0}:\n---\nPrecision: {1}\nRecall: {2}\nF1-score: {3}\n----------".format(*gender_metric))
+        if not gender_spec:
+            print(f"Equal odds (fairlearn): {fairl_eq_odds}\nEqual opportunity: {eq_oppor}\nEqual accuracy: {eq_oppor}\n----------")
+
+            # print the gender-based metrics
+            print("Gender-based metrics:\n----------")
+            for gender_metric in gender_metrics:
+                print("Metrics for label {0}:\n---\nPrecision: {1}\nRecall: {2}\nF1-score: {3}\n----------".format(*gender_metric))
     
     elif get_raw_preds:
         # return the raw predictions (each value is a 2d array because of the dataloader)
@@ -159,33 +167,47 @@ def evaluate_model(model, test_dataloader: DataLoader, config_dict: ConfigDict, 
     
     else:
         # return all measures as a dict
-        return {
-            "model_name": config_dict.model_name,
-            "weighted": {
-                "accuracy": accuracy,
-                "precision": w_precision,
-                "recall": w_recall,
-                "fscore": w_fscore,
-                f"{gender_metrics[0][0]}_fscore": gender_metrics[0][3],
-                f"{gender_metrics[1][0]}_fscore": gender_metrics[1][3],
-            },
-            "macro": {
-                "fscore": m_fscore
-            },
-            "fairness": {
-                "fairl_eq_odds": fairl_eq_odds,
-                "eq_oppor": eq_oppor,
-                "eq_acc": eq_acc,
-                "unpriv": {
-                    "TPR": unpriv_stats[0],
-                    "FPR": unpriv_stats[1]
+        if not gender_spec:
+            measure_dict = {
+                "model_name": config_dict.model_name,
+                "weighted": {
+                    "accuracy": accuracy,
+                    "precision": w_precision,
+                    "recall": w_recall,
+                    "fscore": w_fscore,
+                    f"{gender_metrics[0][0]}_fscore": gender_metrics[0][3],
+                    f"{gender_metrics[1][0]}_fscore": gender_metrics[1][3],
                 },
-                "priv": {
-                    "TPR": priv_stats[0],
-                    "FPR": priv_stats[1]
+                "macro": {
+                    "fscore": m_fscore
+                },
+                "fairness": {
+                    "fairl_eq_odds": fairl_eq_odds,
+                    "eq_oppor": eq_oppor,
+                    "eq_acc": eq_acc,
+                    "unpriv": {
+                        "TPR": unpriv_stats[0],
+                        "FPR": unpriv_stats[1]
+                    },
+                    "priv": {
+                        "TPR": priv_stats[0],
+                        "FPR": priv_stats[1]
+                    }
                 }
             }
-        }
+        else:
+            measure_dict = {
+                "model_name": config_dict.model_name,
+                "weighted": {
+                    "accuracy": accuracy,
+                    "precision": w_precision,
+                    "recall": w_recall,
+                    "fscore": w_fscore,
+                "macro": {
+                    "fscore": m_fscore
+                }}}
+        
+        return measure_dict
 
 
 if __name__ == "__main__":
