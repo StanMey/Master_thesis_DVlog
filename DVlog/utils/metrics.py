@@ -2,7 +2,6 @@ import numpy as np
 import pandas as pd
 
 from fairlearn.metrics import equalized_odds_ratio
-from itertools import chain
 from typing import Tuple
 from sklearn.metrics import (
     accuracy_score, confusion_matrix, precision_recall_fscore_support
@@ -10,70 +9,65 @@ from sklearn.metrics import (
 
 
 ## Performance measures
-def calculate_performance_measures(y_true: list[np.ndarray], y_pred: list[np.ndarray]) -> Tuple[float, float, float, float, float]:
+def calculate_performance_measures(y_true: np.ndarray, y_pred: list[np.ndarray]) -> Tuple[float, float, float, float, float]:
     """Function to calculate all the performance measures.
 
     :param y_true: A 2d list with the ground truths
-    :type y_true: list[np.ndarray]
+    :type y_true: np.ndarray
     :param y_pred: A 2d list with the model's predictions
-    :type y_pred: list[np.ndarray]
+    :type y_pred: np.ndarray
     :return: Returns the calculated performance measures
     :rtype: Tuple[float, float, float, float, float]
     """
 
-    # flatten the predictions and ground truths
-    y_pred = np.concatenate(y_pred)
-    y_true = np.concatenate(y_true)
-
-    # 
-    y_pred = np.argmax(y_pred, axis=1)
-    y_true = np.argmax(y_true, axis=1)
+    # take the highest prediction
+    y_pred = np.argmax(y_pred, axis=1) if len(y_pred.shape) == 2 else y_pred
+    y_true = np.argmax(y_true, axis=1) if len(y_true.shape) == 2 else y_true
 
     accuracy = accuracy_score(y_true, y_pred)
-    w_precision, w_recall, w_fscore, _ = precision_recall_fscore_support(y_true, y_pred, average="weighted")
-    _, _, m_fscore, _ = precision_recall_fscore_support(y_true, y_pred, average="macro")
+    w_precision, w_recall, w_fscore, _ = precision_recall_fscore_support(y_true, y_pred, average="weighted", zero_division=0.0)
+    _, _, m_fscore, _ = precision_recall_fscore_support(y_true, y_pred, average="macro", zero_division=0.0)
 
     return accuracy, w_precision, w_recall, w_fscore, m_fscore
 
 
 ### Gender-based performance measures
-def calculate_gender_performance_measures(y_true: list[np.ndarray], y_pred: list[np.ndarray], protected: list[str]) -> list[Tuple[str, float, float, float]]:
+def calculate_gender_performance_measures(y_true: np.ndarray, y_pred: np.ndarray, protected: list[str]) -> list[Tuple[str, float, float, float]]:
     """_summary_
 
     :param y_true: A 2d list with the ground truths
-    :type y_true: list[np.ndarray]
+    :type y_true: np.ndarray
     :param y_pred: A 2d list with the model's predictions
-    :type y_pred: list[np.ndarray]
+    :type y_pred: np.ndarray
     :return: _description_
     :rtype: Tuple[float, float, float, float]
     """
     # first flatten the predictions and ground truths
-    y_pred = np.argmax(np.concatenate(y_pred), axis=1)
-    y_true = np.argmax(np.concatenate(y_true), axis=1)
-    y_protected = np.array(list(chain.from_iterable(protected)))
+    y_pred = np.argmax(y_pred, axis=1) if len(y_pred.shape) == 2 else y_pred
+    y_true = np.argmax(y_true, axis=1) if len(y_true.shape) == 2 else y_true
     
     metrics = []
-    for gender_value in np.unique(y_protected):
+    for gender_value in np.unique(protected):
 
         # check the precision, recall, F1-score for each gender
-        indices = np.where(y_protected == gender_value)
+        indices = np.where(protected == gender_value)
         y_pred_subset = y_pred[indices]
         y_true_subset = y_true[indices]
 
-        precision, recall, fscore, _ = precision_recall_fscore_support(y_true_subset, y_pred_subset, average="weighted", zero_division=0)
+        precision, recall, fscore, _ = precision_recall_fscore_support(y_true_subset, y_pred_subset, average="weighted", zero_division=0.0)
         metrics.append((gender_value, precision, recall, fscore))
 
     return metrics
 
 
 ## The fairness measures
-def calculate_fairness_measures(y_true: list[np.ndarray], y_pred: list[np.ndarray], protected: list[str], unprivileged: str):
+def calculate_fairness_measures(y_true: np.ndarray, y_pred: np.ndarray, protected: list[str], unprivileged: str):
     """Calculates the actual fairness measures.
 
     :param y_true: A 2d list with the ground truths
-    :type y_true: list[np.ndarray]
+    :type y_true: np.ndarray
     :param y_pred: A 2d list with the model's predictions
-    :type y_pred: list[np.ndarray]
+    :type y_pred: np.ndarray
     :param protected: A 2d list with the sensitive features
     :type protected: list[str]
     :param unprivileged: The value of the unprivileged group
@@ -83,13 +77,11 @@ def calculate_fairness_measures(y_true: list[np.ndarray], y_pred: list[np.ndarra
     """
     
     # flatten the predictions and ground truths
-    y_pred = np.argmax(np.concatenate(y_pred), axis=1)
-    y_true = np.argmax(np.concatenate(y_true), axis=1)
-    protected = np.concatenate(protected)
+    y_pred = np.argmax(y_pred, axis=1) if len(y_pred.shape) == 2 else y_pred
+    y_true = np.argmax(y_true, axis=1) if len(y_true.shape) == 2 else y_true
 
     # put it all in a dataframe for easy handling and filtering
-    df_fairness = pd.DataFrame(np.column_stack([y_pred, y_true, protected]),
-                               columns=["y_pred", "y_true", "group"])
+    df_fairness = pd.DataFrame(np.column_stack([y_pred, y_true, protected]), columns=["y_pred", "y_true", "group"])
 
     # compute the fairness measures
     unpriv_acc, unpriv_tpr, unpriv_fpr = fairness_metrics(df_fairness[df_fairness["group"] == unprivileged])

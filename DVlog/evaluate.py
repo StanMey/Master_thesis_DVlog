@@ -1,5 +1,6 @@
 import os
 import torch
+import numpy as np
 
 import typer
 from typing_extensions import Annotated
@@ -11,6 +12,7 @@ from typing import Union
 
 from torch.utils.data import DataLoader
 from pathlib import Path
+from itertools import chain
 
 from models.model import UnimodalDVlogModel, BimodalDVlogModel
 from models.trimodal_model import TrimodalDVlogModel
@@ -139,6 +141,12 @@ def evaluate_model(model, test_dataloader: DataLoader, config_dict: ConfigDict, 
 
     # get the performance and fairness metrics
     print(f"Model: {config_dict.model_name}\n----------")
+
+    # put all the predictions and ground truths to an numpy array (flatten them all)
+    predictions = np.concatenate(predictions)
+    y_labels = np.concatenate(y_labels)
+    protected = np.array(list(chain.from_iterable(protected)))
+    video_ids = np.array(list(chain.from_iterable(video_ids)))
 
     # calculate the performance and fairness measures
     accuracy, w_precision, w_recall, w_fscore, m_fscore = calculate_performance_measures(y_labels, predictions)
