@@ -32,7 +32,7 @@ def run_cli(
     if evaluate:
         # evaluate the models
         print("Begin evaluating")
-        evaluate_models(config_dir=config_dir, models_path=models_path, use_gpu=use_gpu, unpriv_feature=unpriv_feature, seed=seed)
+        evaluate_models(config_dir=config_dir, models_path=models_path, unpriv_feature=unpriv_feature, seed=seed)
     else:
         # train the not yet trained models
         print("Begin training")
@@ -42,7 +42,6 @@ def run_cli(
 def evaluate_models(
     config_dir: Union[str, Path],
     models_path: Union[str, Path],
-    use_gpu: int,
     unpriv_feature: str,
     seed: int
 ):
@@ -69,7 +68,7 @@ def evaluate_models(
             # check if the model exists
             if model_name in trained_models_names:
                 # model exists, so run the evaluation and save the metrics
-                metrics.append(evaluate(config_path, models_path, use_gpu, unpriv_feature=unpriv_feature, verbose=False, seed=seed))
+                metrics.append(evaluate(config_path, models_path, unpriv_feature=unpriv_feature, verbose=False, seed=seed))
 
     # extract the metrics
     end_metrics = []

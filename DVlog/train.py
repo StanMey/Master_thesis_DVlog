@@ -57,8 +57,11 @@ def train(
     config_dict = process_config(config)
 
     # begin setting up the model for the training cycle
-    #TODO setup the device
-    # device = torch.device("cuda:0" if use_gpu and torch.cuda.is_available() else "cpu")
+    if use_gpu != -1:
+        device = torch.device("cuda" if use_gpu and torch.cuda.is_available() else "cpu")
+    else:
+        device = torch.device("cpu")
+    print(f"Training with {device.type}")
 
     # set the seed
     set_seed(seed)
@@ -100,11 +103,14 @@ def train(
         model = TrimodalDVlogModel((seq_length, config_dict.encoder1_dim), (seq_length, config_dict.encoder2_dim), (seq_length, config_dict.encoder3_dim), cross_type=config_dict.multi_tri_type,
                                    d_model=config_dict.dim_model, uni_n_heads=config_dict.uni_n_heads, cross_n_heads=config_dict.multi_n_heads, use_std=config_dict.detectlayer_use_std)
 
+    # set model to 
+    model.to(device)
+
     # train the actual model
-    train_model(model, train_dataloader, val_dataloader, config_dict, output_path, seed)
+    train_model(model, train_dataloader, val_dataloader, config_dict, output_path, seed, device)
 
 
-def train_model(model, train_dataloader: DataLoader, val_dataloader: DataLoader, config_dict: ConfigDict, output_path: Path, seed: int):
+def train_model(model, train_dataloader: DataLoader, val_dataloader: DataLoader, config_dict: ConfigDict, output_path: Path, seed: int, device):
     """Run the training process using the model and dataloader.
     """
     # setup the saving directory
@@ -128,11 +134,11 @@ def train_model(model, train_dataloader: DataLoader, val_dataloader: DataLoader,
 
             # get the inputs
             if config_dict.n_modalities == 1:
-                # only one modality so unpack the set
-                inputs, labels = data
+                # unpack the set for one modality
+                inputs, labels = data[0].to(device), data[1].to(device)
             else:
                 # more modalities so keep the tuple set
-                inputs, labels = data[:-1], data[-1]
+                inputs, labels = tuple([x.to(device) for x in data[:-1]]), data[-1].to(device)
 
             # zero the parameter gradients
             optimizer.zero_grad()
@@ -163,10 +169,10 @@ def train_model(model, train_dataloader: DataLoader, val_dataloader: DataLoader,
                 # get the validation inputs
                 if config_dict.n_modalities == 1:
                     # only one modality so unpack the set
-                    v_inputs, vlabels = vdata
+                    v_inputs, vlabels = vdata[0].to(device), vdata[1].to(device)
                 else:
                     # more modalities so keep the input tuple set
-                    v_inputs, vlabels = vdata[:-1], vdata[-1]
+                    v_inputs, vlabels = tuple([x.to(device) for x in vdata[:-1]]), vdata[-1].to(device)
 
                 # get the predictions of the model
                 voutputs = model(v_inputs)
@@ -175,8 +181,8 @@ def train_model(model, train_dataloader: DataLoader, val_dataloader: DataLoader,
                 running_vloss += vloss
 
                 # save the predictions and ground truths from each batch for processing
-                predictions.append(voutputs.numpy())
-                y_labels.append(vlabels.numpy())
+                predictions.append(voutputs.cpu().numpy())
+                y_labels.append(vlabels.cpu().numpy())
         
         avg_vloss = running_vloss / (i + 1)
         accuracy, _, _, fscore, _ = calculate_performance_measures(y_labels, predictions)

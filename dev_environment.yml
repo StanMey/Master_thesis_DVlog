@@ -16,4 +16,4 @@ dependencies:
   - pydub
   - gensim
   - spacy
-  - transformers
+  - sentence-transformers

@@ -30,8 +30,8 @@ def calculate_performance_measures(y_true: list[np.ndarray], y_pred: list[np.nda
     y_true = np.argmax(y_true, axis=1)
 
     accuracy = accuracy_score(y_true, y_pred)
-    w_precision, w_recall, w_fscore, _ = precision_recall_fscore_support(y_true, y_pred, average="weighted")
-    _, _, m_fscore, _ = precision_recall_fscore_support(y_true, y_pred, average="macro")
+    w_precision, w_recall, w_fscore, _ = precision_recall_fscore_support(y_true, y_pred, average="weighted", zero_division=0)
+    _, _, m_fscore, _ = precision_recall_fscore_support(y_true, y_pred, average="macro", zero_division=0)
 
     return accuracy, w_precision, w_recall, w_fscore, m_fscore
 
