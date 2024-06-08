@@ -101,7 +101,6 @@ def train_models(
     """
     # get all the config directories
     config_dirs = os.listdir(Path(config_dir))
-    trained_models_names = os.listdir(Path(output_dir))
 
     # for each subdirectory go over the configs, extract the names and check whether the model already exists
     for subdir in config_dirs:
@@ -115,14 +114,14 @@ def train_models(
             validate_config(config)
             config_dict = process_config(config)
             model_name = config_dict.model_name
+            trained_model_name = os.path.join(Path(output_dir), model_name, f"model_{config_dict.model_name}_seed{seed}.pth")
             
             # check if the model exists
-            if model_name in trained_models_names:
-                print(f"Model {model_name} already exists")
-            
+            if os.path.isfile(trained_model_name):
+                print(f"Model {model_name}_seed{seed} already exists")
             else:
                 # we still have to train the model
-                print(f"Training model {model_name}")
+                print(f"Training model {model_name}_seed{seed}")
                 train(config_path=config_path, output_path=output_dir, use_gpu=use_gpu, seed=seed)
 
 
