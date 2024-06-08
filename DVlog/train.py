@@ -101,10 +101,10 @@ def train(
                                    d_model=config_dict.dim_model, uni_n_heads=config_dict.uni_n_heads, cross_n_heads=config_dict.multi_n_heads, use_std=config_dict.detectlayer_use_std)
 
     # train the actual model
-    train_model(model, train_dataloader, val_dataloader, config_dict, output_path)
+    train_model(model, train_dataloader, val_dataloader, config_dict, output_path, seed)
 
 
-def train_model(model, train_dataloader: DataLoader, val_dataloader: DataLoader, config_dict: ConfigDict, output_path: Path):
+def train_model(model, train_dataloader: DataLoader, val_dataloader: DataLoader, config_dict: ConfigDict, output_path: Path, seed: int):
     """Run the training process using the model and dataloader.
     """
     # setup the saving directory
@@ -187,7 +187,7 @@ def train_model(model, train_dataloader: DataLoader, val_dataloader: DataLoader,
         if avg_vloss < best_vloss:
             # save the model itself
             best_vloss = avg_vloss
-            model_path = os.path.join(model_output_path, f"model_{config_dict.model_name}.pth")
+            model_path = os.path.join(model_output_path, f"model_{config_dict.model_name}_seed{seed}.pth")
             torch.save(model.state_dict(), model_path)
 
     # save the config dictionary
