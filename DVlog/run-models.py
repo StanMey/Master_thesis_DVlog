@@ -32,7 +32,7 @@ def run_cli(
     if evaluate:
         # evaluate the models
         print("Begin evaluating")
-        evaluate_models(config_dir=config_dir, models_path=models_path, use_gpu=use_gpu, unpriv_feature=unpriv_feature, seed=seed)
+        evaluate_models(config_dir=config_dir, models_path=models_path, unpriv_feature=unpriv_feature, seed=seed)
     else:
         # train the not yet trained models
         print("Begin training")
@@ -42,7 +42,6 @@ def run_cli(
 def evaluate_models(
     config_dir: Union[str, Path],
     models_path: Union[str, Path],
-    use_gpu: int,
     unpriv_feature: str,
     seed: int
 ):
@@ -69,7 +68,7 @@ def evaluate_models(
             # check if the model exists
             if model_name in trained_models_names:
                 # model exists, so run the evaluation and save the metrics
-                metrics.append(evaluate(config_path, models_path, use_gpu, unpriv_feature=unpriv_feature, verbose=False, seed=seed))
+                metrics.append(evaluate(config_path, models_path, unpriv_feature=unpriv_feature, verbose=False, seed=seed))
 
     # extract the metrics
     end_metrics = []
@@ -101,7 +100,6 @@ def train_models(
     """
     # get all the config directories
     config_dirs = os.listdir(Path(config_dir))
-    trained_models_names = os.listdir(Path(output_dir))
 
     # for each subdirectory go over the configs, extract the names and check whether the model already exists
     for subdir in config_dirs:
@@ -115,14 +113,14 @@ def train_models(
             validate_config(config)
             config_dict = process_config(config)
             model_name = config_dict.model_name
+            trained_model_name = os.path.join(Path(output_dir), model_name, f"model_{config_dict.model_name}_seed{seed}.pth")
             
             # check if the model exists
-            if model_name in trained_models_names:
-                print(f"Model {model_name} already exists")
-            
+            if os.path.isfile(trained_model_name):
+                print(f"Model {model_name}_seed{seed} already exists")
             else:
                 # we still have to train the model
-                print(f"Training model {model_name}")
+                print(f"Training model {model_name}_seed{seed}")
                 train(config_path=config_path, output_path=output_dir, use_gpu=use_gpu, seed=seed)
 
 

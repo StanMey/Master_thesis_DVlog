@@ -1,4 +1,4 @@
-name: dvlog_env_test
+name: dvlog_gpu_env
 channels:
   - anaconda
   - conda-forge
@@ -17,3 +17,4 @@ dependencies:
   - scikit-learn
   - confection
   - typer
+  - fairlearn=0.10.0
