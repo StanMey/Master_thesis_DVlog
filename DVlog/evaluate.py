@@ -45,7 +45,9 @@ def evaluate(
     verbose: bool,
     get_raw_predictions: bool = False,
     seed: int = 42,
-    gender_spec: str = None
+    gender_spec: str = None,
+    detailed_fair: bool = False
+
 ):
     """Function to extract and process the configuration file and setup the models and dataloaders to evaluate the model.
     """
@@ -110,7 +112,7 @@ def evaluate(
     return evaluate_model(saved_model, test_dataloader, config_dict, unpriv_feature, verbose, get_raw_preds=get_raw_predictions, gender_spec=gender_spec)
 
 
-def evaluate_model(model, test_dataloader: DataLoader, config_dict: ConfigDict, unpriv_feature: str, verbose: bool, get_raw_preds: bool, gender_spec: str = None) -> Union[None, dict]:
+def evaluate_model(model, test_dataloader: DataLoader, config_dict: ConfigDict, unpriv_feature: str, verbose: bool, get_raw_preds: bool, gender_spec: str = None, detailed_fair: bool = False) -> Union[None, dict]:
     """Run the actual evaluation process using the model and dataloader.
     """
     predictions = []
@@ -153,7 +155,13 @@ def evaluate_model(model, test_dataloader: DataLoader, config_dict: ConfigDict, 
 
     if not gender_spec:
         # if we evaluate only for one gender, doing fairness measures and gender performance does not make sense
-        eq_oppor, eq_acc, fairl_eq_odds, unpriv_stats, priv_stats = calculate_fairness_measures(y_labels, predictions, protected, unprivileged=unpriv_feature)
+        if detailed_fair:
+            # retrieve all fairness details
+            eq_oppor, eq_acc, pred_equal, fairl_eq_odds, unpriv_stats, priv_stats = calculate_fairness_measures(y_labels, predictions, protected, unprivileged=unpriv_feature, detailed=True)
+        else:
+            # only get the aggregated fairness details
+            eq_oppor, eq_acc, pred_equal = calculate_fairness_measures = calculate_fairness_measures(y_labels, predictions, protected, unprivileged=unpriv_feature)
+
         gender_metrics = calculate_gender_performance_measures(y_labels, predictions, protected)
 
     if verbose:
@@ -162,7 +170,11 @@ def evaluate_model(model, test_dataloader: DataLoader, config_dict: ConfigDict, 
         print(f"(macro) -->\nF1-score: {m_fscore}\n----------")
 
         if not gender_spec:
-            print(f"Equal odds (fairlearn): {fairl_eq_odds}\nEqual opportunity: {eq_oppor}\nEqual accuracy: {eq_oppor}\n----------")
+            # check the amount of details to print
+            if detailed_fair:
+                print(f"Equal odds (fairlearn): {fairl_eq_odds}\nEqual opportunity: {eq_oppor}\nPredictive equality: {pred_equal}\nEqual accuracy: {eq_oppor}\n----------")
+            else:
+                print(f"Equal opportunity: {eq_oppor}\nPredictive equality: {pred_equal}\nEqual accuracy: {eq_oppor}\n----------")
 
             # print the gender-based metrics
             print("Gender-based metrics:\n----------")
@@ -188,10 +200,14 @@ def evaluate_model(model, test_dataloader: DataLoader, config_dict: ConfigDict, 
                 },
                 "macro": {
                     "fscore": m_fscore
-                },
-                "fairness": {
-                    "fairl_eq_odds": fairl_eq_odds,
+                }}
+            
+            if detailed_fair:
+                # retrieve all fairness details
+                measure_dict["fairness"] = {
+                    "eq_odds": fairl_eq_odds,
                     "eq_oppor": eq_oppor,
+                    "pred_eq": pred_equal,
                     "eq_acc": eq_acc,
                     "unpriv": {
                         "TPR": unpriv_stats[0],
@@ -200,9 +216,13 @@ def evaluate_model(model, test_dataloader: DataLoader, config_dict: ConfigDict, 
                     "priv": {
                         "TPR": priv_stats[0],
                         "FPR": priv_stats[1]
-                    }
-                }
-            }
+                    }}
+            else:
+                # 
+                measure_dict["fairness"] = {
+                    "eq_oppor": eq_oppor,
+                    "pred_eq": pred_equal,
+                    "eq_acc": eq_acc}
         else:
             measure_dict = {
                 "model_name": config_dict.model_name,

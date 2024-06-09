@@ -61,7 +61,7 @@ def calculate_gender_performance_measures(y_true: np.ndarray, y_pred: np.ndarray
 
 
 ## The fairness measures
-def calculate_fairness_measures(y_true: np.ndarray, y_pred: np.ndarray, protected: list[str], unprivileged: str):
+def calculate_fairness_measures(y_true: np.ndarray, y_pred: np.ndarray, protected: list[str], unprivileged: str, detailed: bool = False):
     """Calculates the actual fairness measures.
 
     :param y_true: A 2d list with the ground truths
@@ -72,6 +72,8 @@ def calculate_fairness_measures(y_true: np.ndarray, y_pred: np.ndarray, protecte
     :type protected: list[str]
     :param unprivileged: The value of the unprivileged group
     :type unprivileged: str
+    :param detailed: , defaults to False
+    :type detailed: bool, optional
     :return: Returns the calculated fairness measures
     :rtype: Tuple[float, float, float, Tuple[float, float], Tuple[float, float]]
     """
@@ -90,13 +92,18 @@ def calculate_fairness_measures(y_true: np.ndarray, y_pred: np.ndarray, protecte
     # calculate the ratios
     eq_oppor = unpriv_tpr / priv_tpr
     eq_acc = unpriv_acc / priv_acc
+    pred_equal = unpriv_fpr / priv_fpr
 
     # for the equalized odds we use the approach by fairlearn (https://fairlearn.org/main/user_guide/assessment/common_fairness_metrics.html#equalized-odds)
     # "The smaller of two metrics: `true_positive_rate_ratio` and `false_positive_rate_ratio`."
     fairl_eq_odds = equalized_odds_ratio(y_true, y_pred, sensitive_features=protected)
     # eq_odds = min((unpriv_tpr / priv_tpr), (unpriv_fpr / priv_fpr))
 
-    return eq_oppor, eq_acc, fairl_eq_odds, (unpriv_tpr, unpriv_fpr), (priv_tpr, priv_fpr)
+    if detailed:
+        # return the more detailed fairness measures
+        return eq_oppor, eq_acc, pred_equal, fairl_eq_odds, (unpriv_tpr, unpriv_fpr), (priv_tpr, priv_fpr)
+    else:
+        return eq_oppor, eq_acc, pred_equal
 
 
 def fairness_metrics(df: pd.DataFrame) -> Tuple[float, float, float]:
