@@ -24,7 +24,6 @@ from utils.util import validate_config, process_config, set_seed
 def evaluate_cli(
     config_path: Path = typer.Argument(..., help="Path to config file", exists=True, allow_dash=True),
     models_path: Annotated[Path, typer.Option(help="Path to saved models folder", exists=True, allow_dash=True)] = Path(r"./trained_models"),
-    use_gpu: Annotated[int, typer.Option("--gpu-id", "-g", help="GPU ID or -1 for CPU")] = -1,
     unpriv_feature: Annotated[str, typer.Option("--unpriv-feature", "-u", help="The unprivileged fairness feature (m or f)")] = "m",
     verbose: Annotated[bool, typer.Option("--verbose", "-v", help="When 'True' prints the measures to console, otherwise returns them as a dict")] = True,
     seed: Annotated[int, typer.Option("--seed", "-s", help="The seed used when randomness is introduced")] = 42,
@@ -32,13 +31,12 @@ def evaluate_cli(
 ):
     """The CLI function handling the interaction part when the user runs the evaluate.py script.
     """
-    evaluate(config_path=config_path, models_path=models_path, use_gpu=use_gpu, unpriv_feature=unpriv_feature, verbose=verbose, seed=seed, gender_spec=gender_spec)
+    evaluate(config_path=config_path, models_path=models_path, unpriv_feature=unpriv_feature, verbose=verbose, seed=seed, gender_spec=gender_spec)
 
 
 def evaluate(
     config_path: Union[str, Path],
     models_path: Union[str, Path],
-    use_gpu: int,
     unpriv_feature: str,
     verbose: bool,
     get_raw_predictions: bool = False,
@@ -64,7 +62,7 @@ def evaluate(
 
     # begin setting up the model for the evaluation cycle
     model_dir_path = Path(os.path.join(models_path, config_dict.model_name))
-    saved_model_path = Path(os.path.join(model_dir_path, f"model_{config_dict.model_name}.pth"))
+    saved_model_path = Path(os.path.join(model_dir_path, f"model_{config_dict.model_name}_seed{seed}.pth"))
     assert model_dir_path.is_dir(), f"Saved model directory not found: {model_dir_path}"
     assert saved_model_path.is_file(), f"Saved model not found: {saved_model_path}"
 
@@ -91,8 +89,6 @@ def evaluate(
     # load in the parameters and set the model to evaluation mode
     saved_model.load_state_dict(torch.load(saved_model_path))
     saved_model.eval()
-
-    #TODO setup the device
 
     # load in the dataset
     if config_dict.encoder1_use_sync:
