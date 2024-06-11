@@ -1,7 +1,6 @@
 import numpy as np
 import pandas as pd
 
-from fairlearn.metrics import equalized_odds_ratio
 from typing import Tuple
 from sklearn.metrics import (
     accuracy_score, confusion_matrix, precision_recall_fscore_support
@@ -27,8 +26,6 @@ def calculate_performance_measures(y_true: np.ndarray, y_pred: list[np.ndarray])
     accuracy = accuracy_score(y_true, y_pred)
     w_precision, w_recall, w_fscore, _ = precision_recall_fscore_support(y_true, y_pred, average="weighted", zero_division=0.0)
     _, _, m_fscore, _ = precision_recall_fscore_support(y_true, y_pred, average="macro", zero_division=0)
-    w_precision, w_recall, w_fscore, _ = precision_recall_fscore_support(y_true, y_pred, average="weighted", zero_division=0.0)
-    _, _, m_fscore, _ = precision_recall_fscore_support(y_true, y_pred, average="macro", zero_division=0.0)
 
     return accuracy, w_precision, w_recall, w_fscore, m_fscore
 
@@ -63,7 +60,7 @@ def calculate_gender_performance_measures(y_true: np.ndarray, y_pred: np.ndarray
 
 
 ## The fairness measures
-def calculate_fairness_measures(y_true: np.ndarray, y_pred: np.ndarray, protected: list[str], unprivileged: str, detailed: bool = False):
+def calculate_fairness_measures(y_true: np.ndarray, y_pred: np.ndarray, protected: list[str], unprivileged: str):
     """Calculates the actual fairness measures.
 
     :param y_true: A 2d list with the ground truths
@@ -74,8 +71,6 @@ def calculate_fairness_measures(y_true: np.ndarray, y_pred: np.ndarray, protecte
     :type protected: list[str]
     :param unprivileged: The value of the unprivileged group
     :type unprivileged: str
-    :param detailed: , defaults to False
-    :type detailed: bool, optional
     :return: Returns the calculated fairness measures
     :rtype: Tuple[float, float, float, Tuple[float, float], Tuple[float, float]]
     """
@@ -98,17 +93,13 @@ def calculate_fairness_measures(y_true: np.ndarray, y_pred: np.ndarray, protecte
 
     # for the equalized odds we use the approach by fairlearn (https://fairlearn.org/main/user_guide/assessment/common_fairness_metrics.html#equalized-odds)
     # "The smaller of two metrics: `true_positive_rate_ratio` and `false_positive_rate_ratio`."
-    fairl_eq_odds = equalized_odds_ratio(y_true, y_pred, sensitive_features=protected)
     # eq_odds = min((unpriv_tpr / priv_tpr), (unpriv_fpr / priv_fpr))
 
-    if detailed:
-        # return the more detailed fairness measures
-        return eq_oppor, eq_acc, pred_equal, fairl_eq_odds, (unpriv_tpr, unpriv_fpr), (priv_tpr, priv_fpr)
-    else:
-        return eq_oppor, eq_acc, pred_equal
+    # return the more detailed fairness measures
+    return eq_oppor, eq_acc, pred_equal, (unpriv_tpr, unpriv_fpr), (priv_tpr, priv_fpr)
 
 
-def fairness_metrics(df: pd.DataFrame) -> Tuple[float, float, float]:
+def fairness_metrics(df: pd.DataFrame, alpha: int = 1) -> Tuple[float, float, float]:
     """Calculates the prediction rates.
 
     :param df: dataframe holding the predictions and ground truths
@@ -124,7 +115,7 @@ def fairness_metrics(df: pd.DataFrame) -> Tuple[float, float, float]:
     # calculate the rates
     N = TP + FP + FN + TN  # total population
     ACC = (TP + TN) / N  # accuracy
-    TPR = TP / (TP + FN)  # True Positive Rate (sensitivity)
-    FPR = FP / (FP + TN)  # False Positive Rate
+    TPR = (TP + alpha) / (TP + FN + alpha)  # True Positive Rate (sensitivity)
+    FPR = (FP + alpha) / (FP + TN + alpha)  # False Positive Rate
 
     return ACC, TPR, FPR

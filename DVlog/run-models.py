@@ -32,7 +32,7 @@ def run_cli(
     if evaluate:
         # evaluate the models
         print("Begin evaluating")
-        evaluate_models(config_dir=config_dir, models_path=models_path, unpriv_feature=unpriv_feature, seed=seed)
+        evaluate_models(config_dir=config_dir, models_path=models_path, unpriv_feature=unpriv_feature)
     else:
         # train the not yet trained models
         print("Begin training")
@@ -42,8 +42,7 @@ def run_cli(
 def evaluate_models(
     config_dir: Union[str, Path],
     models_path: Union[str, Path],
-    unpriv_feature: str,
-    seed: int
+    unpriv_feature: str
 ):
     # setup the metric list
     metrics = []
@@ -67,8 +66,15 @@ def evaluate_models(
 
             # check if the model exists
             if model_name in trained_models_names:
-                # model exists, so run the evaluation and save the metrics
-                metrics.append(evaluate(config_path, models_path, unpriv_feature=unpriv_feature, verbose=False, seed=seed))
+                # model exists, so get all the trained model's names
+                model_variants = [f for f in os.listdir(os.path.join(models_path, model_name)) if f.endswith(".pth")]
+
+                for variant in model_variants:
+                    filename, _ = os.path.splitext(variant)
+                    train_seed = int(filename.split("_seed")[-1])
+
+                    # run the evaluation and save the metrics
+                    metrics.append(evaluate(config_path, models_path, unpriv_feature=unpriv_feature, verbose=False, seed=train_seed))
 
     # extract the metrics
     end_metrics = []
@@ -78,16 +84,23 @@ def evaluate_models(
 
         # get all metrics and put them to floats
         float_metrics = (
-            weighted.get("precision"), weighted.get("recall"), weighted.get("fscore"), metric.get("macro").get("fscore"),
-            weighted.get("m_fscore"), weighted.get("f_fscore"), fairness.get("eq_acc"), fairness.get("eq_oppor"), fairness.get("fairl_eq_odds"),
-            fairness.get("unpriv").get("TPR"), fairness.get("unpriv").get("FPR"), fairness.get("priv").get("TPR"), fairness.get("priv").get("FPR")
-        )
+            weighted.get("precision"), weighted.get("recall"), weighted.get("fscore"), weighted.get("m_fscore"), weighted.get("f_fscore"),
+            fairness.get("eq_acc"), fairness.get("eq_oppor"), fairness.get("pred_equal"),
+            fairness.get("unpriv").get("TPR"), fairness.get("unpriv").get("FPR"), fairness.get("priv").get("TPR"), fairness.get("priv").get("FPR"))
         float_metrics = tuple(map(float, float_metrics))
-        end_metrics.append((metric.get("model_name"), *float_metrics))
+        end_metrics.append((metric.get("model_name"), metric.get("model_seed"), *float_metrics))
 
     # build the pandas dataframe, so we can store the results
-    df = pd.DataFrame(end_metrics, columns=['Name', 'precision', 'recall', "f1 (weighted)", "f1 (macro)", "f1_m", "f1_f", "Eq accuracy", "eq opportunity", "fairl_eq_odds", "unpriv_TPR", "unpriv_FPR", "priv_TPR", "priv_FPR"])
+    df = pd.DataFrame(end_metrics, columns=['name', 'seed', 'precision', 'recall', "f1", "f1_m", "f1_f", "Eq accuracy", "eq opportunity", "pred equality", "unpriv_TPR", "unpriv_FPR", "priv_TPR", "priv_FPR"])
     df.to_csv(os.path.join(models_path, "metrics.csv"), sep=";")
+
+    # remove the seed value so groupby operation becomes straightforward
+    df.drop(["seed"], axis=1, inplace=True)
+    grouped_avg = df.groupby("name").mean()
+    grouped_avg.to_csv(os.path.join(models_path, "avg_metrics.csv"), sep=";")
+
+    grouped_std = df.groupby("name").std()
+    grouped_std.to_csv(os.path.join(models_path, "std_metrics.csv"), sep=";")
 
 
 def train_models(

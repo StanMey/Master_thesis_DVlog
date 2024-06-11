@@ -34,20 +34,17 @@ def evaluate_cli(
 ):
     """The CLI function handling the interaction part when the user runs the evaluate.py script.
     """
-    evaluate(config_path=config_path, models_path=models_path, use_gpu=use_gpu, unpriv_feature=unpriv_feature, verbose=verbose, seed=seed, gender_spec=gender_spec)
+    evaluate(config_path=config_path, models_path=models_path, unpriv_feature=unpriv_feature, verbose=verbose, seed=seed, gender_spec=gender_spec)
 
 
 def evaluate(
     config_path: Union[str, Path],
     models_path: Union[str, Path],
-    use_gpu: int,
     unpriv_feature: str,
     verbose: bool,
     get_raw_predictions: bool = False,
     seed: int = 42,
-    gender_spec: str = None,
-    detailed_fair: bool = False
-
+    gender_spec: str = None
 ):
     """Function to extract and process the configuration file and setup the models and dataloaders to evaluate the model.
     """
@@ -68,7 +65,7 @@ def evaluate(
 
     # begin setting up the model for the evaluation cycle
     model_dir_path = Path(os.path.join(models_path, config_dict.model_name))
-    saved_model_path = Path(os.path.join(model_dir_path, f"model_{config_dict.model_name}.pth"))
+    saved_model_path = Path(os.path.join(model_dir_path, f"model_{config_dict.model_name}_seed{seed}.pth"))
     assert model_dir_path.is_dir(), f"Saved model directory not found: {model_dir_path}"
     assert saved_model_path.is_file(), f"Saved model not found: {saved_model_path}"
 
@@ -96,8 +93,6 @@ def evaluate(
     saved_model.load_state_dict(torch.load(saved_model_path))
     saved_model.eval()
 
-    #TODO setup the device
-
     # load in the dataset
     if config_dict.encoder1_use_sync:
         # use the synced data loader
@@ -109,10 +104,10 @@ def evaluate(
     test_dataloader = DataLoader(test_data, batch_size=config_dict.batch_size, shuffle=True)
 
     # evaluate the model
-    return evaluate_model(saved_model, test_dataloader, config_dict, unpriv_feature, verbose, get_raw_preds=get_raw_predictions, gender_spec=gender_spec)
+    return evaluate_model(saved_model, test_dataloader, config_dict, unpriv_feature, verbose, seed, get_raw_preds=get_raw_predictions, gender_spec=gender_spec)
 
 
-def evaluate_model(model, test_dataloader: DataLoader, config_dict: ConfigDict, unpriv_feature: str, verbose: bool, get_raw_preds: bool, gender_spec: str = None, detailed_fair: bool = False) -> Union[None, dict]:
+def evaluate_model(model, test_dataloader: DataLoader, config_dict: ConfigDict, unpriv_feature: str, verbose: bool, seed: int, get_raw_preds: bool, gender_spec: str = None) -> Union[None, dict]:
     """Run the actual evaluation process using the model and dataloader.
     """
     predictions = []
@@ -142,7 +137,7 @@ def evaluate_model(model, test_dataloader: DataLoader, config_dict: ConfigDict, 
             video_ids.append(v_video_id)
 
     # get the performance and fairness metrics
-    print(f"Model: {config_dict.model_name}\n----------")
+    print(f"Model: {config_dict.model_name} with seed: {seed}\n----------")
 
     # put all the predictions and ground truths to an numpy array (flatten them all)
     predictions = np.concatenate(predictions)
@@ -155,12 +150,8 @@ def evaluate_model(model, test_dataloader: DataLoader, config_dict: ConfigDict, 
 
     if not gender_spec:
         # if we evaluate only for one gender, doing fairness measures and gender performance does not make sense
-        if detailed_fair:
-            # retrieve all fairness details
-            eq_oppor, eq_acc, pred_equal, fairl_eq_odds, unpriv_stats, priv_stats = calculate_fairness_measures(y_labels, predictions, protected, unprivileged=unpriv_feature, detailed=True)
-        else:
-            # only get the aggregated fairness details
-            eq_oppor, eq_acc, pred_equal = calculate_fairness_measures = calculate_fairness_measures(y_labels, predictions, protected, unprivileged=unpriv_feature)
+        # retrieve all fairness details
+        eq_oppor, eq_acc, pred_equal, unpriv_stats, priv_stats = calculate_fairness_measures(y_labels, predictions, protected, unprivileged=unpriv_feature)
 
         gender_metrics = calculate_gender_performance_measures(y_labels, predictions, protected)
 
@@ -170,11 +161,7 @@ def evaluate_model(model, test_dataloader: DataLoader, config_dict: ConfigDict, 
         print(f"(macro) -->\nF1-score: {m_fscore}\n----------")
 
         if not gender_spec:
-            # check the amount of details to print
-            if detailed_fair:
-                print(f"Equal odds (fairlearn): {fairl_eq_odds}\nEqual opportunity: {eq_oppor}\nPredictive equality: {pred_equal}\nEqual accuracy: {eq_oppor}\n----------")
-            else:
-                print(f"Equal opportunity: {eq_oppor}\nPredictive equality: {pred_equal}\nEqual accuracy: {eq_oppor}\n----------")
+            print(f"Equal opportunity: {eq_oppor}\nPredictive equality: {pred_equal}\nEqual accuracy: {eq_oppor}\n----------")
 
             # print the gender-based metrics
             print("Gender-based metrics:\n----------")
@@ -187,45 +174,9 @@ def evaluate_model(model, test_dataloader: DataLoader, config_dict: ConfigDict, 
     
     else:
         # return all measures as a dict
-        if not gender_spec:
-            measure_dict = {
+        measure_dict = {
                 "model_name": config_dict.model_name,
-                "weighted": {
-                    "accuracy": accuracy,
-                    "precision": w_precision,
-                    "recall": w_recall,
-                    "fscore": w_fscore,
-                    f"{gender_metrics[0][0]}_fscore": gender_metrics[0][3],
-                    f"{gender_metrics[1][0]}_fscore": gender_metrics[1][3],
-                },
-                "macro": {
-                    "fscore": m_fscore
-                }}
-            
-            if detailed_fair:
-                # retrieve all fairness details
-                measure_dict["fairness"] = {
-                    "eq_odds": fairl_eq_odds,
-                    "eq_oppor": eq_oppor,
-                    "pred_eq": pred_equal,
-                    "eq_acc": eq_acc,
-                    "unpriv": {
-                        "TPR": unpriv_stats[0],
-                        "FPR": unpriv_stats[1]
-                    },
-                    "priv": {
-                        "TPR": priv_stats[0],
-                        "FPR": priv_stats[1]
-                    }}
-            else:
-                # 
-                measure_dict["fairness"] = {
-                    "eq_oppor": eq_oppor,
-                    "pred_eq": pred_equal,
-                    "eq_acc": eq_acc}
-        else:
-            measure_dict = {
-                "model_name": config_dict.model_name,
+                "model_seed": seed,
                 "weighted": {
                     "accuracy": accuracy,
                     "precision": w_precision,
@@ -235,6 +186,25 @@ def evaluate_model(model, test_dataloader: DataLoader, config_dict: ConfigDict, 
                     "fscore": m_fscore
                 }}}
         
+        if not gender_spec:
+            # add all extra to the measurements_dict
+            measure_dict["weighted"][f"{gender_metrics[0][0]}_fscore"] = gender_metrics[0][3]
+            measure_dict["weighted"][f"{gender_metrics[1][0]}_fscore"] = gender_metrics[1][3]
+            
+            # save all fairness-based measures
+            measure_dict["fairness"] = {
+                "eq_oppor": eq_oppor,
+                "pred_equal": pred_equal,
+                "eq_acc": eq_acc,
+                "unpriv": {
+                    "TPR": unpriv_stats[0],
+                    "FPR": unpriv_stats[1]
+                },
+                "priv": {
+                    "TPR": priv_stats[0],
+                    "FPR": priv_stats[1]
+                }}
+
         return measure_dict
 
 
