@@ -2,6 +2,7 @@ import os
 import json
 import torch
 
+import numpy as np
 import torch.nn as nn
 import torch.optim as optim
 
@@ -185,6 +186,10 @@ def train_model(model, train_dataloader: DataLoader, val_dataloader: DataLoader,
                 y_labels.append(vlabels.cpu().numpy())
         
         avg_vloss = running_vloss / (i + 1)
+
+        # put all the predictions and ground truths to an numpy array (flatten them all)
+        predictions = np.concatenate(predictions)
+        y_labels = np.concatenate(y_labels)
         accuracy, _, _, fscore, _ = calculate_performance_measures(y_labels, predictions)
         print('LOSS train {} validation {}'.format(avg_loss, avg_vloss))
         print(f"Validation accuracy: {accuracy}; F1-score: {fscore}")

@@ -80,12 +80,14 @@ def calculate_fairness_measures(y_true: np.ndarray, y_pred: np.ndarray, protecte
     y_true = np.argmax(y_true, axis=1) if len(y_true.shape) == 2 else y_true
 
     # put it all in a dataframe for easy handling and filtering
-    df_fairness = pd.DataFrame(np.column_stack([y_pred, y_true, protected]), columns=["y_pred", "y_true", "group"])
+    df_fairness = pd.DataFrame({"y_pred": pd.Series(y_pred, dtype="int"),
+                                "y_true": pd.Series(y_true, dtype="int"),
+                                "group": pd.Series(protected, dtype="object")})
 
     # compute the fairness measures
     unpriv_acc, unpriv_tpr, unpriv_fpr = fairness_metrics(df_fairness[df_fairness["group"] == unprivileged])
     priv_acc, priv_tpr, priv_fpr = fairness_metrics(df_fairness[df_fairness["group"] != unprivileged])
-    
+
     # calculate the ratios
     eq_oppor = unpriv_tpr / priv_tpr
     eq_acc = unpriv_acc / priv_acc
