@@ -68,6 +68,10 @@ def validate_config(config: dict):
             mixfeat_option, available_mixf_options = get_config_value(config, "training", "mixfeat_type"),  ['group_upsample', 'mixgender_upsample', 'subgroup_upsample', 'synthetic', 'synthetic_mixgendered']
             assert mixfeat_option in available_mixf_options, f"Bias mitigation option {mixfeat_option} invalid; please choose one of {available_mixf_options}"
 
+    # if we do gender specific training, check if the correct gender label is corrected
+    if keys_exists(config, "training", "gender_spec"):
+        gender_option, available_g_options = get_config_value(config, "training", "gender_spec"),  ['m', 'f']
+        assert gender_option in available_g_options, f"Gender option {gender_option} invalid; please choose one of {available_g_options}"
 
 
 
@@ -139,6 +143,7 @@ class ConfigDict:
         self.multi_tri_type = None if not keys_exists(self.config, "model", "multimodal", "tri_type") else get_config_value(self.config, "model", "multimodal", "tri_type")
         self.bias_mit = None if not keys_exists(self.config, "training", "bias_mit") else get_config_value(self.config, "training", "bias_mit")
         self.mixfeat_type = None if not keys_exists(self.config, "training", "mixfeat_type") else get_config_value(self.config, "training", "mixfeat_type")
+        self.gender_spec = None if not keys_exists(self.config, "training", "gender_spec") else get_config_value(self.config, "training", "gender_spec")
 
         # set up the training variables (here we do have to check each feature since we otherwise can use default values)
         self.batch_size = 32 if not keys_exists(self.config, "training", "batch_size") else get_config_value(self.config, "training", "batch_size")

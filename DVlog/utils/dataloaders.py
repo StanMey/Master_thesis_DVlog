@@ -28,7 +28,7 @@ class MultimodalEmbeddingsDataset(Dataset):
         """
         self.dataset = dataset
         self.config = train_config
-        self.gender_spec = gender_spec
+        self.gender_spec = gender_spec if gender_spec else self.config.gender_spec
 
         # check the input
         self.annotations_file = self.config.annotations_file
