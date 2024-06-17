@@ -59,9 +59,9 @@ def validate_config(config: dict):
     
     # if we do do a some bias mitigation, check whether it is implemented
     if keys_exists(config, "training", "bias_mit"):
-        chosen_option, available_biasoptions = get_config_value(config, "training", "bias_mit"), ["mixfeat", "oversample"]
+        chosen_option, available_biasoptions = get_config_value(config, "training", "bias_mit"), ["mixfeat", "oversample", "reweighing"]
         assert chosen_option in available_biasoptions, f"Bias mitigation option {chosen_option} invalid; please choose one of {available_biasoptions}"
-        assert 1 <= n_modalities <= 2, f"Bias mitigation approaches only implemented 1 or 2 modalities, not for {n_modalities}"
+        assert n_modalities == 1, f"Bias mitigation approaches only implemented for 1 modality, not for {n_modalities}"
 
         # if we do choose mixfeat check if the corresponding mixfeat type is implemented
         if chosen_option == "mixfeat":

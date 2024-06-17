@@ -8,7 +8,7 @@ from torch.utils.data import Dataset
 from pathlib import Path
 
 from utils.util import ConfigDict
-from utils.bias_mitigations import apply_oversampling, apply_mixfeat_oversampling
+from utils.bias_mitigations import apply_oversampling, apply_mixfeat_oversampling, apply_reweighing
 
 
 class MultimodalEmbeddingsDataset(Dataset):
@@ -305,17 +305,22 @@ class BiasmitMultimodalEmbeddingsDataset(Dataset):
 
             if mixfeat_ids:
                 # we have a synthetic example, so use the mixfeat approach
-                embeddings = (self._retrieve_mixfeat_embeddings(mixfeat_ids, mixfeat_probs[0], self.config.encoder1_data_dir, self.config.encoder1_feature_name),)
+                embeddings = self._retrieve_mixfeat_embeddings(mixfeat_ids, mixfeat_probs[0], self.config.encoder1_data_dir, self.config.encoder1_feature_name)
 
             else:
                 # we have a normal embedding, so just retrieve it the normal way
-                embeddings = (self._retrieve_embedding(video_id, self.config.encoder1_data_dir, self.config.encoder1_feature_name),)
+                embeddings = self._retrieve_embedding(video_id, self.config.encoder1_data_dir, self.config.encoder1_feature_name)
         
         else:
-            embeddings = (self._retrieve_embedding(video_id, self.config.encoder1_data_dir, self.config.encoder1_feature_name),)
+            embeddings = self._retrieve_embedding(video_id, self.config.encoder1_data_dir, self.config.encoder1_feature_name)
 
         # apply the padding over all the embeddings
-        padded_embeddings = [self._pad_sequences(embedding, self.seq_length) for embedding in embeddings]
+        padded_embeddings = self._pad_sequences(embeddings, self.seq_length)
+
+        if self.bias_mit_type == "reweighing":
+            # add the weight of the sample to the output
+            weight = self.data_labels.iloc[idx, 4]
+            padded_embeddings = [padded_embeddings, [weight]]
         
         # format the label as a class
         class_label = np.zeros(2)
@@ -396,5 +401,7 @@ class BiasmitMultimodalEmbeddingsDataset(Dataset):
             df_annotations = apply_mixfeat_oversampling(df_annotations, mixfeat_type, self.n_modalities, self.seed)
         elif bias_mit_type == "oversample":
             df_annotations = apply_oversampling(df_annotations, self.seed)
+        elif bias_mit_type == "reweighing":
+            df_annotations = apply_reweighing(df_annotations)
 
         return df_annotations
