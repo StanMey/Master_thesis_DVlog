@@ -104,7 +104,7 @@ def evaluate_models(
 
     # build the pandas dataframe, so we can store the results
     df = pd.DataFrame(end_metrics, columns=['name', 'seed', 'precision', 'recall', "f1", "f1_m", "f1_f", "Eq accuracy", "eq opportunity", "pred equality", "unpriv_TPR", "unpriv_FPR", "priv_TPR", "priv_FPR"])
-    df.to_csv(os.path.join(models_path, "metrics.csv"), sep=";")
+    df.to_csv(os.path.join(models_path, f"{dataset}_metrics.csv"), sep=";")
 
     # remove the seed value so groupby operation becomes straightforward
     df.drop(["seed"], axis=1, inplace=True)
