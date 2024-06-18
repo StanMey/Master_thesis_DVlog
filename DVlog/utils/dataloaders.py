@@ -136,6 +136,7 @@ class SyncedMultimodalEmbeddingsDataset(Dataset):
         """
         self.dataset = dataset
         self.config = train_config
+        self.gender_spec = self.config.gender_spec
 
         # check the input
         self.annotations_file = self.config.annotations_file
@@ -242,6 +243,10 @@ class SyncedMultimodalEmbeddingsDataset(Dataset):
         :type annotations_file: Path
         """
         df_annotations = pd.read_csv(annotations_file)
+
+        # check if we have to filter on gender
+        if self.gender_spec:
+            df_annotations[df_annotations["gender"] == self.gender_spec]
 
         # filter and return
         return df_annotations[df_annotations["dataset"] == self.dataset]
