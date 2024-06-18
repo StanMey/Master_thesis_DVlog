@@ -27,6 +27,7 @@ def evaluate_cli(
     config_path: Path = typer.Argument(..., help="Path to config file", exists=True, allow_dash=True),
     models_path: Annotated[Path, typer.Option(help="Path to saved models folder", exists=True, allow_dash=True)] = Path(r"./trained_models"),
     unpriv_feature: Annotated[str, typer.Option("--unpriv-feature", "-u", help="The unprivileged fairness feature (m or f)")] = "m",
+    dataset: Annotated[str, typer.Option("--dataset", help="")] = "test",
     verbose: Annotated[bool, typer.Option("--verbose", "-v", help="When 'True' prints the measures to console, otherwise returns them as a dict")] = True,
     seed: Annotated[int, typer.Option("--seed", "-s", help="The seed used when randomness is introduced")] = 42,
     gender_spec: Annotated[str, typer.Option("--gspec", help="Whether we want to run the model on only one gender ['m' or 'f']")] = None
@@ -40,10 +41,12 @@ def evaluate(
     config_path: Union[str, Path],
     models_path: Union[str, Path],
     unpriv_feature: str,
+    dataset: str,
     verbose: bool,
     get_raw_predictions: bool = False,
     seed: int = 42,
-    gender_spec: str = None
+    gender_spec: str = None,
+
 ):
     """Function to extract and process the configuration file and setup the models and dataloaders to evaluate the model.
     """
@@ -54,6 +57,7 @@ def evaluate(
     # check the unprivileged feature
     assert unpriv_feature in ["m", "f"], "Unprivileged feature should be either 'm' or 'f'"
     assert gender_spec in ["m", "f", None], "Gender specific token not correct"
+    assert dataset in ["train", "test", "val"], "Selected dataset not correct"
 
     # check the config file on completeness
     config = Config().from_disk(config_path)
@@ -95,9 +99,9 @@ def evaluate(
     # load in the dataset
     if config_dict.encoder1_use_sync:
         # use the synced data loader
-        test_data = SyncedMultimodalEmbeddingsDataset("test", config_dict, to_tensor=True, with_protected=True)
+        test_data = SyncedMultimodalEmbeddingsDataset(dataset, config_dict, to_tensor=True, with_protected=True)
     else:
-        test_data = MultimodalEmbeddingsDataset("test", config_dict, to_tensor=True, with_protected=True, gender_spec=gender_spec)
+        test_data = MultimodalEmbeddingsDataset(dataset, config_dict, to_tensor=True, with_protected=True, gender_spec=gender_spec)
 
     # setup the dataloader
     test_dataloader = DataLoader(test_data, batch_size=config_dict.batch_size, shuffle=True)
@@ -145,7 +149,7 @@ def evaluate_model(model, test_dataloader: DataLoader, config_dict: ConfigDict, 
     video_ids = np.array(list(chain.from_iterable(video_ids)))
 
     # calculate the performance and fairness measures
-    accuracy, w_precision, w_recall, w_fscore, m_fscore = calculate_performance_measures(y_labels, predictions)
+    accuracy, w_precision, w_recall, w_fscore, _ = calculate_performance_measures(y_labels, predictions)
 
     if not gender_spec:
         # if we evaluate only for one gender, doing fairness measures and gender performance does not make sense
@@ -157,7 +161,6 @@ def evaluate_model(model, test_dataloader: DataLoader, config_dict: ConfigDict, 
     if verbose:
         # print all the calculated measures
         print(f"(weighted) -->\nAccuracy: {accuracy}\nPrecision: {w_precision}\nRecall: {w_recall}\nF1-score: {w_fscore}")
-        print(f"(macro) -->\nF1-score: {m_fscore}\n----------")
 
         if not gender_spec:
             print(f"Equal opportunity: {eq_oppor}\nPredictive equality: {pred_equal}\nEqual accuracy: {eq_oppor}\n----------")
@@ -181,10 +184,8 @@ def evaluate_model(model, test_dataloader: DataLoader, config_dict: ConfigDict, 
                     "precision": w_precision,
                     "recall": w_recall,
                     "fscore": w_fscore,
-                "macro": {
-                    "fscore": m_fscore
-                }}}
-        
+                }}
+
         if not gender_spec:
             # add all extra to the measurements_dict
             measure_dict["weighted"][f"{gender_metrics[0][0]}_fscore"] = gender_metrics[0][3]
