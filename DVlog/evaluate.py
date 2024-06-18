@@ -34,7 +34,7 @@ def evaluate_cli(
 ):
     """The CLI function handling the interaction part when the user runs the evaluate.py script.
     """
-    evaluate(config_path=config_path, models_path=models_path, unpriv_feature=unpriv_feature, verbose=verbose, seed=seed, gender_spec=gender_spec)
+    evaluate(config_path=config_path, models_path=models_path, unpriv_feature=unpriv_feature, verbose=verbose, seed=seed, gender_spec=gender_spec, dataset=dataset)
 
 
 def evaluate(
