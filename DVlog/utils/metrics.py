@@ -113,9 +113,10 @@ def fairness_metrics(df: pd.DataFrame, alpha: int = 1) -> Tuple[float, float, fl
     TN, FP, FN, TP = cm.ravel()
 
     # calculate the rates
-    N = TP + FP + FN + TN  # total population
-    ACC = (TP + TN) / N  # accuracy
     TPR = (TP + alpha) / (TP + FN + alpha)  # True Positive Rate (sensitivity)
     FPR = (FP + alpha) / (FP + TN + alpha)  # False Positive Rate
 
-    return ACC, TPR, FPR
+    # calculate the gender-specific F1-score
+    _, _, f1acc, _ = precision_recall_fscore_support(df["y_true"], df["y_pred"], average="weighted", zero_division=0.0)
+
+    return f1acc, TPR, FPR
