@@ -2,6 +2,7 @@ import os
 import json
 import torch
 
+import numpy as np
 import torch.nn as nn
 import torch.optim as optim
 
@@ -118,6 +119,10 @@ def train_model(model, train_dataloader: DataLoader, val_dataloader: DataLoader,
     os.makedirs(model_output_path, exist_ok=True)
 
     # set the loss function and optimizer
+    if config_dict.bias_mit == "reweighing":
+        # we want the loss per sample when reweighing
+        weighted_criterion = nn.CrossEntropyLoss(reduction="none")
+
     criterion = nn.CrossEntropyLoss()
     optimizer = optim.Adam(model.parameters(), lr=config_dict.learning_rate)
 
@@ -134,8 +139,11 @@ def train_model(model, train_dataloader: DataLoader, val_dataloader: DataLoader,
 
             # get the inputs
             if config_dict.n_modalities == 1:
-                # unpack the set for one modality
-                inputs, labels = data[0].to(device), data[1].to(device)
+                if config_dict.bias_mit == "reweighing":
+                    inputs, weights, labels = data[0].to(device), data[1].to(device), data[2].to(device)
+                else:
+                    # unpack the set for one modality
+                    inputs, labels = data[0].to(device), data[1].to(device)
             else:
                 # more modalities so keep the tuple set
                 inputs, labels = tuple([x.to(device) for x in data[:-1]]), data[-1].to(device)
@@ -146,7 +154,15 @@ def train_model(model, train_dataloader: DataLoader, val_dataloader: DataLoader,
             # forward + backward + optimize
             outputs = model(inputs)
 
-            loss = criterion(outputs, labels)
+            if config_dict.bias_mit == "reweighing":
+                # calculate the loss function using the weights
+                loss = weighted_criterion(outputs, labels)
+                loss = (loss * weights).mean()
+
+            else:
+                # use the normal straightforward loss function
+                loss = criterion(outputs, labels)
+
             loss.backward()
             optimizer.step()
 
@@ -185,6 +201,10 @@ def train_model(model, train_dataloader: DataLoader, val_dataloader: DataLoader,
                 y_labels.append(vlabels.cpu().numpy())
         
         avg_vloss = running_vloss / (i + 1)
+
+        # put all the predictions and ground truths to an numpy array (flatten them all)
+        predictions = np.concatenate(predictions)
+        y_labels = np.concatenate(y_labels)
         accuracy, _, _, fscore, _ = calculate_performance_measures(y_labels, predictions)
         print('LOSS train {} validation {}'.format(avg_loss, avg_vloss))
         print(f"Validation accuracy: {accuracy}; F1-score: {fscore}")

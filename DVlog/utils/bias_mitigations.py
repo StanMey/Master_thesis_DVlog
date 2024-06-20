@@ -9,7 +9,7 @@ def apply_oversampling(annotations_df: pd.DataFrame, seed: int=42) -> pd.DataFra
     """Apply the oversampling bias mitigation method on the dataset.
     Calculates the difference between the minority and majority class and uses this difference to randomly oversample the minority class
 
-    :param annotations_file: Dataframe consisting of the columns 'gender', and 'depression'.
+    :param annotations_file: Dataframe consisting of the columns 'gender', and 'label'.
     :type annotations_file: pd.DataFrame
     :param seed: The replication seed, defaults to 42
     :type seed: int, optional
@@ -31,10 +31,38 @@ def apply_oversampling(annotations_df: pd.DataFrame, seed: int=42) -> pd.DataFra
     return annotations_df
 
 
+def apply_reweighing(annotations_df: pd.DataFrame) -> pd.DataFrame:
+    """Get the reweighing weights for every instance on the dataset.
+    Largely implemented using https://github.com/Trusted-AI/AIF360/blob/main/aif360/algorithms/preprocessing/reweighing.py
+
+    :param annotations_file: Dataframe consisting of the columns 'gender', and 'label'.
+    :type annotations_file: pd.DataFrame
+    """
+    n = len(annotations_df)
+
+    # get the expected probabilities
+    pexp_dict = {
+        "m": len(annotations_df[annotations_df["gender"] == "m"]) / n,
+        "f": len(annotations_df[annotations_df["gender"] == "f"]) / n,
+        "1": len(annotations_df[annotations_df["label"] == 1]) / n,
+        "0": len(annotations_df[annotations_df["label"] == 0]) / n
+    }
+    # pexp_male = len(annotations_df[annotations_df["gender"] == "m"]) / n
+    # pexp_female = len(annotations_df[annotations_df["gender"] == "f"]) / n
+    # pexp_depr = len(annotations_df[annotations_df["label"] == 1]) / n
+    # pexp_normal = len(annotations_df[annotations_df["label"] == 0]) / n
+
+    # setup and expand the original annotations dataframe with the weight column
+    exp_n = annotations_df.groupby(["gender", "label"])["video_id"].count().to_dict()
+    annotations_df["weight"] = annotations_df.apply(lambda x: (pexp_dict.get(str(x.label)) * pexp_dict.get(x.gender)) / (exp_n.get((x.gender, x.label)) / n), axis=1)
+
+    return annotations_df
+
+
 def apply_mixfeat_oversampling(annotations_df: pd.DataFrame, mixfeat_type: str, n_modalities: int, seed: int=42) -> pd.DataFrame:
     """Setup the mixfeat features following the 'Fairness for a Small Dataset of Multi-modal Dyadic Mental Well-being Coaching' paper.
 
-    :param annotations_df: Dataframe consisting of (at least) the columns 'gender', and 'depression'.
+    :param annotations_df: Dataframe consisting of (at least) the columns 'gender', and 'label'.
     :type annotations_df: pd.DataFrame
     :param mixfeat_type: Specifies which mixfeat experiment is ran, can be either ['group_upsample', 'mixgender_upsample', 'subgroup_upsample', 'pure_synthetic', 'synthetic_mixgendered']
     :type mixfeat_type: str

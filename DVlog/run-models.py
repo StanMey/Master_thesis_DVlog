@@ -21,7 +21,8 @@ def run_cli(
     use_gpu: Annotated[int, typer.Option("--gpu-id", "-g", help="GPU ID or -1 for CPU")] = -1,
     evaluate: Annotated[bool, typer.Option("--evaluate/--train", help="whether to evaluate the models or to train the not yet trained models")] = True,
     unpriv_feature: Annotated[str, typer.Option("--unpriv-feature", "-u", help="The unprivileged fairness feature (m or f) (needed for the evaluation step)")] = "m",
-    seed: Annotated[int, typer.Option("--seed", "-s", help="The seed used when randomness is introduced")] = 42
+    seed: Annotated[int, typer.Option("--seed", "-s", help="The seed used when randomness is introduced")] = 42,
+    dataset: Annotated[str, typer.Option("--dataset", "-d", help="")] = "test",
 ):
     """The CLI function handling the interaction part.
     """
@@ -32,7 +33,7 @@ def run_cli(
     if evaluate:
         # evaluate the models
         print("Begin evaluating")
-        evaluate_models(config_dir=config_dir, models_path=models_path, unpriv_feature=unpriv_feature)
+        evaluate_models(config_dir=config_dir, models_path=models_path, unpriv_feature=unpriv_feature, dataset=dataset)
     else:
         # train the not yet trained models
         print("Begin training")
@@ -42,7 +43,8 @@ def run_cli(
 def evaluate_models(
     config_dir: Union[str, Path],
     models_path: Union[str, Path],
-    unpriv_feature: str
+    unpriv_feature: str,
+    dataset: str
 ):
     # setup the metric list
     metrics = []
@@ -74,33 +76,43 @@ def evaluate_models(
                     train_seed = int(filename.split("_seed")[-1])
 
                     # run the evaluation and save the metrics
-                    metrics.append(evaluate(config_path, models_path, unpriv_feature=unpriv_feature, verbose=False, seed=train_seed))
+                    metrics.append((config_dict.gender_spec, evaluate(config_path, models_path, unpriv_feature=unpriv_feature, verbose=False, seed=train_seed, dataset=dataset)))
+
 
     # extract the metrics
     end_metrics = []
-    for metric in metrics:
-        weighted = metric.get("weighted")
-        fairness = metric.get("fairness")
+    for gender_spec, metrics in metrics:
+        if gender_spec:
+            # the model was gender specific trained, so only 
+            weighted = metrics.get("weighted")
+            float_metrics = (
+                float(weighted.get("precision")), float(weighted.get("recall")), float(weighted.get("fscore")), float(weighted.get("m_fscore")), float(weighted.get("f_fscore")),
+                None, None, None, None, None, None, None
+            )
+        else:
+            weighted = metrics.get("weighted")
+            fairness = metrics.get("fairness")
 
-        # get all metrics and put them to floats
-        float_metrics = (
-            weighted.get("precision"), weighted.get("recall"), weighted.get("fscore"), weighted.get("m_fscore"), weighted.get("f_fscore"),
-            fairness.get("eq_acc"), fairness.get("eq_oppor"), fairness.get("pred_equal"),
-            fairness.get("unpriv").get("TPR"), fairness.get("unpriv").get("FPR"), fairness.get("priv").get("TPR"), fairness.get("priv").get("FPR"))
-        float_metrics = tuple(map(float, float_metrics))
-        end_metrics.append((metric.get("model_name"), metric.get("model_seed"), *float_metrics))
+            # get all metrics and put them to floats
+            float_metrics = (
+                weighted.get("precision"), weighted.get("recall"), weighted.get("fscore"), weighted.get("m_fscore"), weighted.get("f_fscore"),
+                fairness.get("eq_acc"), fairness.get("eq_oppor"), fairness.get("pred_equal"),
+                fairness.get("unpriv").get("TPR"), fairness.get("unpriv").get("FPR"), fairness.get("priv").get("TPR"), fairness.get("priv").get("FPR"))
+            float_metrics = tuple(map(float, float_metrics))
+
+        end_metrics.append((metrics.get("model_name"), metrics.get("model_seed"), *float_metrics))
 
     # build the pandas dataframe, so we can store the results
     df = pd.DataFrame(end_metrics, columns=['name', 'seed', 'precision', 'recall', "f1", "f1_m", "f1_f", "Eq accuracy", "eq opportunity", "pred equality", "unpriv_TPR", "unpriv_FPR", "priv_TPR", "priv_FPR"])
-    df.to_csv(os.path.join(models_path, "metrics.csv"), sep=";")
+    df.to_csv(os.path.join(models_path, f"{dataset}_metrics.csv"), sep=";")
 
     # remove the seed value so groupby operation becomes straightforward
     df.drop(["seed"], axis=1, inplace=True)
     grouped_avg = df.groupby("name").mean()
-    grouped_avg.to_csv(os.path.join(models_path, "avg_metrics.csv"), sep=";")
+    grouped_avg.to_csv(os.path.join(models_path, f"{dataset}_avg_metrics.csv"), sep=";")
 
     grouped_std = df.groupby("name").std()
-    grouped_std.to_csv(os.path.join(models_path, "std_metrics.csv"), sep=";")
+    grouped_std.to_csv(os.path.join(models_path, f"{dataset}_std_metrics.csv"), sep=";")
 
 
 def train_models(
