@@ -22,7 +22,7 @@ def run_cli(
     evaluate: Annotated[bool, typer.Option("--evaluate/--train", help="whether to evaluate the models or to train the not yet trained models")] = True,
     unpriv_feature: Annotated[str, typer.Option("--unpriv-feature", "-u", help="The unprivileged fairness feature (m or f) (needed for the evaluation step)")] = "m",
     seed: Annotated[int, typer.Option("--seed", "-s", help="The seed used when randomness is introduced")] = 42,
-    dataset: Annotated[str, typer.Option("--dataset", "-d", help="")] = "test",
+    dataset: Annotated[str, typer.Option("--dataset", "-d", help="On which dataset to run the evaluation script")] = "test",
 ):
     """The CLI function handling the interaction part.
     """

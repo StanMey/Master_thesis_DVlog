@@ -38,7 +38,7 @@ def validate_config(config: dict):
             assert keys_exists(config, "model", "encoder", str(x_encoder), key), f"Key {key} for encoder {x_encoder} not defined properly"
     
     # if we do do a sync function over the first encoder check if we have a sync file in the config
-    if keys_exists(config, "model", "encoder", "1", "apply_sync"):
+    if keys_exists(config, "model", "encoder", "1", "apply_sync") or keys_exists(config, "model", "encoder", "2", "apply_sync") or keys_exists(config, "model", "encoder", "3", "apply_sync"):
         assert keys_exists(config, "paths", "sync_file"), f"no 'sync_file' section in the config file"
 
         # check whether the path to the sync file exists
@@ -163,12 +163,14 @@ class ConfigDict:
             self.encoder2_feature_name = self.encoder2.get("feature_name")
             self.encoder2_dim = self.encoder2.get("feature_dim")
             self.encoder2_data_dir = Path(self.encoder2.get("data_dir"))
-        
+            self.encoder2_use_sync = False if not keys_exists(self.config, "model", "encoder", "2", "apply_sync") else get_config_value(self.config, "model", "encoder", "2", "apply_sync")
+
         if self.n_modalities == 3:
             self.encoder3 = get_config_value(self.config, "model", "encoder", "3")
             self.encoder3_feature_name = self.encoder3.get("feature_name")
             self.encoder3_dim = self.encoder3.get("feature_dim")
             self.encoder3_data_dir = Path(self.encoder3.get("data_dir"))
+            self.encoder3_use_sync = False if not keys_exists(self.config, "model", "encoder", "3", "apply_sync") else get_config_value(self.config, "model", "encoder", "3", "apply_sync")
     
 
     def to_dict(self) -> dict:

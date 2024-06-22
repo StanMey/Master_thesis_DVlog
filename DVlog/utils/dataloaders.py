@@ -159,15 +159,28 @@ class SyncedMultimodalEmbeddingsDataset(Dataset):
         protected = self.data_labels.iloc[idx, 2]
 
         # load in the first embedding
-        embeddings = (self._retrieve_embedding(video_id, self.config.encoder1_data_dir, self.config.encoder1_feature_name), )
+        if self.config.encoder1_use_sync:
+            # retrieve synced embeddings
+            embeddings = (self._retrieve_synced_embedding(video_id, self.config.encoder1_data_dir, self.config.encoder1_feature_name, self.sync_dict), )
+        else:
+            embeddings = (self._retrieve_embedding(video_id, self.config.encoder1_data_dir, self.config.encoder1_feature_name), )
 
         if self.config.n_modalities >= 2:
             # load in the additional embedding
-            embeddings = (*embeddings, self._retrieve_synced_embedding(video_id, self.config.encoder2_data_dir, self.config.encoder2_feature_name, self.sync_dict))
+            if self.config.encoder2_use_sync:
+                # retrieve the synced embeddings
+                embeddings = (*embeddings, self._retrieve_synced_embedding(video_id, self.config.encoder2_data_dir, self.config.encoder2_feature_name, self.sync_dict))
+            else:
+                embeddings = (*embeddings, self._retrieve_embedding(video_id, self.config.encoder2_data_dir, self.config.encoder2_feature_name))
 
         if self.config.n_modalities == 3:
             # load in the last embedding
-            embeddings = (*embeddings, self._retrieve_synced_embedding(video_id, self.config.encoder3_data_dir, self.config.encoder3_feature_name, self.sync_dict))
+            if self.config.encoder3_use_sync:
+                # retrieve the synced embeddings
+                embeddings = (*embeddings, self._retrieve_synced_embedding(video_id, self.config.encoder3_data_dir, self.config.encoder3_feature_name, self.sync_dict))
+            else:
+                embeddings = (*embeddings, self._retrieve_embedding(video_id, self.config.encoder3_data_dir, self.config.encoder3_feature_name))
+
 
         # apply the padding over all the embeddings
         padded_embeddings = [self._pad_sequences(embedding, self.seq_length) for embedding in embeddings]
@@ -233,7 +246,7 @@ class SyncedMultimodalEmbeddingsDataset(Dataset):
         else:
             # the sequence is to long, so apply the truncate
             padded_embeddings = embedding[:seq_length]
-        
+
         return padded_embeddings
 
     def retrieve_dataset_labels(self, annotations_file: Path):

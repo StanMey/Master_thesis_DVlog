@@ -68,11 +68,11 @@ def train(
     set_seed(seed)
 
     # load in the dataset
-    if config_dict.encoder1_use_sync:
+    if config_dict.sync_file:
         # use the synced multimodal dataloader
         training_data = SyncedMultimodalEmbeddingsDataset("train", config_dict, to_tensor=True)
         val_data = SyncedMultimodalEmbeddingsDataset("val", config_dict, to_tensor=True)
-    
+
     elif config_dict.bias_mit:
         # we will use a bias mitigation approach
         training_data = BiasmitMultimodalEmbeddingsDataset("train", config_dict, to_tensor=True, seed=seed)

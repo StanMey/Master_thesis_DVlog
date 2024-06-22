@@ -97,7 +97,7 @@ def evaluate(
     saved_model.eval()
 
     # load in the dataset
-    if config_dict.encoder1_use_sync:
+    if config_dict.sync_file:
         # use the synced data loader
         test_data = SyncedMultimodalEmbeddingsDataset(dataset, config_dict, to_tensor=True, with_protected=True)
     else:
