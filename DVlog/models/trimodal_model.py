@@ -60,7 +60,7 @@ class CrissCrossAttentionModule(nn.Module):
 
 class LayeredCrossAttentionModule(nn.Module):
     """Implementation of layered Cross-attention.
-    We assume that the first input is the textual feature (or the feature that gets combined at the last cross-attention block)
+    We assume that the first input is the feature that gets combined at the last cross-attention block
     """
     def __init__(self, d_model: int = 256, n_heads: int = 16):
         """
