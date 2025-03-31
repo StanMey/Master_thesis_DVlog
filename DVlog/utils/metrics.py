@@ -60,7 +60,7 @@ def calculate_gender_performance_measures(y_true: np.ndarray, y_pred: np.ndarray
 
 
 ## The fairness measures
-def calculate_fairness_measures(y_true: np.ndarray, y_pred: np.ndarray, protected: list[str], unprivileged: str):
+def calculate_fairness_measures(y_true: np.ndarray, y_pred: np.ndarray, protected: list[str], unprivileged: str, gender_specific: bool = False) -> Tuple[float, float, float, Tuple[float, float], Tuple[float, float]]:
     """Calculates the actual fairness measures.
 
     :param y_true: A 2d list with the ground truths
@@ -86,12 +86,18 @@ def calculate_fairness_measures(y_true: np.ndarray, y_pred: np.ndarray, protecte
 
     # compute the fairness measures
     unpriv_acc, unpriv_tpr, unpriv_fpr = fairness_metrics(df_fairness[df_fairness["group"] == unprivileged])
-    priv_acc, priv_tpr, priv_fpr = fairness_metrics(df_fairness[df_fairness["group"] != unprivileged])
 
-    # calculate the ratios
-    eq_oppor = unpriv_tpr / priv_tpr
-    eq_acc = unpriv_acc / priv_acc
-    pred_equal = unpriv_fpr / priv_fpr
+    if not gender_specific:
+        # calculate the fairness measures for the unprivileged group
+        priv_acc, priv_tpr, priv_fpr = fairness_metrics(df_fairness[df_fairness["group"] != unprivileged])
+
+        # calculate the ratios
+        eq_oppor = unpriv_tpr / priv_tpr
+        eq_acc = unpriv_acc / priv_acc
+        pred_equal = unpriv_fpr / priv_fpr
+    
+    else:
+        eq_oppor, eq_acc, pred_equal, priv_tpr, priv_fpr = 0.0, 0.0, 0.0, 0.0, 0.0
 
     # for the equalized odds we use the approach by fairlearn (https://fairlearn.org/main/user_guide/assessment/common_fairness_metrics.html#equalized-odds)
     # "The smaller of two metrics: `true_positive_rate_ratio` and `false_positive_rate_ratio`."

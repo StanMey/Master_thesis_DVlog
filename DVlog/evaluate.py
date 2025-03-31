@@ -93,8 +93,13 @@ def evaluate(
                                    d_model=config_dict.dim_model, uni_n_heads=config_dict.uni_n_heads, cross_n_heads=config_dict.multi_n_heads, use_std=config_dict.detectlayer_use_std)
     
     # load in the parameters and set the model to evaluation mode
-    saved_model.load_state_dict(torch.load(saved_model_path))
-    saved_model.eval()
+    print("loading model")
+    try:
+        saved_model.load_state_dict(torch.load(saved_model_path, map_location=torch.device("cpu")))
+        saved_model.eval()
+    except Exception as e:
+        print(f"Error loading model: {e}")
+    print("loaded model")
 
     # load in the dataset
     if config_dict.sync_file:
@@ -105,6 +110,7 @@ def evaluate(
 
     # setup the dataloader
     test_dataloader = DataLoader(test_data, batch_size=config_dict.batch_size, shuffle=True)
+    print("loaded dataloader")
 
     # evaluate the model
     return evaluate_model(saved_model, test_dataloader, config_dict, unpriv_feature, verbose, seed, get_raw_preds=get_raw_predictions, gender_spec=gender_spec)
@@ -119,6 +125,7 @@ def evaluate_model(model, test_dataloader: DataLoader, config_dict: ConfigDict, 
     video_ids = []
 
     # Disable gradient computation and reduce memory consumption.
+    print("Begin evaluation")
     with torch.no_grad():
         for _, vdata in enumerate(test_dataloader):
             
@@ -154,9 +161,13 @@ def evaluate_model(model, test_dataloader: DataLoader, config_dict: ConfigDict, 
     if not gender_spec:
         # if we evaluate only for one gender, doing fairness measures and gender performance does not make sense
         # retrieve all fairness details
-        eq_oppor, eq_acc, pred_equal, unpriv_stats, priv_stats = calculate_fairness_measures(y_labels, predictions, protected, unprivileged=unpriv_feature)
+        eq_oppor, eq_acc, pred_equal, unpriv_stats, priv_stats = calculate_fairness_measures(y_labels, predictions, protected, unprivileged=unpriv_feature, gender_specific=False)
 
         gender_metrics = calculate_gender_performance_measures(y_labels, predictions, protected)
+    
+    else:
+        # 
+        _, _, _, unpriv_stats, _ = calculate_fairness_measures(y_labels, predictions, protected, unprivileged=unpriv_feature, gender_specific=True)
 
     if verbose:
         # print all the calculated measures
@@ -169,11 +180,14 @@ def evaluate_model(model, test_dataloader: DataLoader, config_dict: ConfigDict, 
             print("Gender-based metrics:\n----------")
             for gender_metric in gender_metrics:
                 print("Metrics for label {0}:\n---\nPrecision: {1}\nRecall: {2}\nF1-score: {3}\n----------".format(*gender_metric))
+
+        else:
+            print(f"Gender specific metrics for {gender_spec} group:\n---\nTPR: {unpriv_stats[0]}\nFPR: {unpriv_stats[1]}\n----------)")
     
     elif get_raw_preds:
         # return the raw predictions (each value is a 2d array because of the dataloader)
         return predictions, y_labels, protected, video_ids
-    
+
     else:
         # return all measures as a dict
         measure_dict = {
@@ -184,6 +198,12 @@ def evaluate_model(model, test_dataloader: DataLoader, config_dict: ConfigDict, 
                     "precision": w_precision,
                     "recall": w_recall,
                     "fscore": w_fscore,
+                },
+                "fairness": {
+                    "unpriv:": {
+                        "TPR": unpriv_stats[0],
+                        "FPR": unpriv_stats[1]
+                    }
                 }}
 
         if not gender_spec:

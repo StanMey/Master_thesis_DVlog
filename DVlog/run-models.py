@@ -85,9 +85,10 @@ def evaluate_models(
         if gender_spec:
             # the model was gender specific trained, so only 
             weighted = metrics.get("weighted")
+            fairness = metrics.get("fairness")
             float_metrics = (
                 float(weighted.get("precision")), float(weighted.get("recall")), float(weighted.get("fscore")), float(weighted.get("m_fscore")), float(weighted.get("f_fscore")),
-                None, None, None, None, None, None, None
+                None, None, None, fairness.get("unpriv").get("TPR"), fairness.get("unpriv").get("FPR"), None, None
             )
         else:
             weighted = metrics.get("weighted")
