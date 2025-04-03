@@ -95,7 +95,7 @@ def evaluate(
     # load in the parameters and set the model to evaluation mode
     print("loading model")
     try:
-        saved_model.load_state_dict(torch.load(saved_model_path, map_location=torch.device("cpu")))
+        saved_model.load_state_dict(torch.load(saved_model_path))
         saved_model.eval()
     except Exception as e:
         print(f"Error loading model: {e}")
@@ -175,6 +175,8 @@ def evaluate_model(model, test_dataloader: DataLoader, config_dict: ConfigDict, 
 
         if not gender_spec:
             print(f"Equal opportunity: {eq_oppor}\nPredictive equality: {pred_equal}\nEqual accuracy: {eq_oppor}\n----------")
+            print(f"Unprivileged group:\n---\nTPR: {unpriv_stats[0]}\nFPR: {unpriv_stats[1]}\n----------")
+            print(f"Privileged group:\n---\nTPR: {priv_stats[0]}\nFPR: {priv_stats[1]}\n----------")
 
             # print the gender-based metrics
             print("Gender-based metrics:\n----------")
